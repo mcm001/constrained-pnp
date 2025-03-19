@@ -1,0 +1,271 @@
+\documentclass[12pt]{article}
+
+% Packages
+\usepackage{amsmath, amssymb, amsthm} % For math symbols and environments
+\usepackage{geometry} % To adjust margins
+\geometry{letterpaper, margin=1.5in} % Set page size and margins
+\usepackage{enumitem} % For custom lists
+\usepackage{fancyhdr} % For header and footer
+\usepackage{lastpage} % For the last page number
+\usepackage{graphicx}
+\usepackage{tcolorbox}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{mathtools}
+\usepackage{mathpazo}
+\usepackage{listings}
+\usepackage{hyperref}
+
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+% Header and Footer
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textbf{Solving the Constrained Perspective-n-Point Problem}}
+\fancyhead[R]{Joshua Nichols}
+\fancyfoot[C]{Page \thepage\ of \pageref{LastPage}}
+
+% Custom Commands
+\newcommand{\problem}[1]{\subsection*{Problem #1}}
+\newcommand{\solution}{\subsubsection*{Solution}}
+\newcommand{\PP}{\mathbb{P}}
+
+\newcommand{\parens}[1]{\mathopen{}\left( {#1}_{{}_{}}\,\negthickspace\right)\mathclose{}}
+\newcommand{\bracks}[1]{\mathopen{}\left[ {#1}_{{}_{}}\,\negthickspace\right]\mathclose{}}
+\newcommand{\braces}[1]{\mathopen{}\left\{ {#1}_{{}_{}}\,\negthickspace\right\}\mathclose{}}
+\newcommand{\angles}[1]{\mathopen{}\left\langle {#1}_{{}_{}}\,\negthickspace\right\rangle\mathclose{}}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{10pt}
+
+\tcbset{
+    colframe=black, % Color of the box border
+    colback=white,  % Background color
+    sharp corners,  % Box style
+    boxrule=0.5pt,  % Thickness of the box border
+}
+
+% Begin Document
+\begin{document}
+
+\title{Solving the Constrained Perspective-n-Point Problem}
+\author{Joshua Nichols}
+\date{March 18th 2025}
+\maketitle
+
+\section{Introduction}
+
+In this writeup we discuss a version of the perspective-n-point problem with the solution constrained to lie in the SE(2) group. This approach is useful in robotics where we wish to solve for the pose of a robot.
+
+talk about opencv here
+
+Note the notation and problem structure is heavily based on \cite{zhou2019iros}.
+
+\newpage
+
+\section{Problem Formulation}
+
+Suppose we have $N$ image points $\mathbf{p}_i=[x_i,y_i]^\intercal$ and corresponding world points $\mathbf{P}_i=[X_i,Y_i,Z_i]^\intercal$. 
+Let $K\in \mathbb{R}^{3\times 3}$ be the camera's intrinsic matrix. 
+The objective is to find the 3D pose, represented by the rotation matrix $R\in \mathbb{R}^{3\times 3}$ and translation vector $T\in\mathbb{R}^3$, such that the reprojection error is minimized. 
+
+The additional constraint we introduce is to restrict the pose to lie in the Euclidian group $SE(2)$. With this constraint, the rotation matrix and translation vector can be written as
+
+\begin{equation}
+  T=\begin{bmatrix}
+    x \\ y \\ 0
+  \end{bmatrix}\text{ and }R=\begin{bmatrix}
+    \cos \theta & -\sin\theta & 0\\
+    \sin \theta & \cos \theta & 0\\
+    0 & 0 & 1
+  \end{bmatrix},\text{ where }x,y,\theta\in\mathbb{R}.
+\end{equation}
+
+We use the Cayley transform to introduce a change of variables
+
+\begin{equation}
+R=\begin{bmatrix}
+  \cos \theta & -\sin\theta & 0\\
+  \sin \theta & \cos \theta & 0\\
+  0 & 0 & 1
+\end{bmatrix}=\begin{bmatrix}
+  \frac{1-\tau^2}{1+\tau^2} & \frac{2\tau}{1+\tau^2} & 0\\
+  -\frac{2\tau}{1+\tau^2} & \frac{1-\tau^2}{1+\tau^2} & 0\\
+  0 & 0 & 1
+\end{bmatrix},\text{ where }\tau\in\mathbb{R}.
+\end{equation}
+
+We assume the pinhole camera model, which models the relationship between image points and world points as
+
+\begin{equation}
+  s\begin{bmatrix}
+    \mathbf{p_i}\\ 1
+  \end{bmatrix}=K\begin{bmatrix}
+    R, T
+  \end{bmatrix}\begin{bmatrix}
+    \mathbf{P}_i\\ 1
+  \end{bmatrix}, \text{ for some }s\in\mathbb{R}.
+\end{equation}
+
+To simplify the problem, we multiply both sides by $K^{-1}$
+
+\begin{equation}
+  sK^{-1}\begin{bmatrix}
+    \mathbf{p_i}\\ 1
+  \end{bmatrix}=\begin{bmatrix}
+    R, T
+  \end{bmatrix}\begin{bmatrix}
+    \mathbf{P}_i\\ 1
+  \end{bmatrix}, \text{ for some }s\in\mathbb{R}.
+\end{equation}
+
+For the rest of the paper, we will use normalized image points $\mathbf{u_i}=[u_i,v_i]^\intercal$ defined as $\begin{bmatrix}
+  \mathbf{u}_i \\ 1
+\end{bmatrix}=K^{-1}\begin{bmatrix}
+  \mathbf{p_i} \\ 1
+\end{bmatrix}$. Rewriting (4) with normalized image points gives
+
+\begin{equation}
+  s\begin{bmatrix}
+    \mathbf{u_i}\\ 1
+  \end{bmatrix}=\begin{bmatrix}
+    R, T
+  \end{bmatrix}\begin{bmatrix}
+    \mathbf{P}_i\\ 1
+  \end{bmatrix}, \text{ for some }s\in\mathbb{R}.
+\end{equation}
+
+For notational purposes, let $\mathbf{r_i}$ represent the $i$-th row of the rotation matrix and $t_i$ represent the $i$-th element of the translation vector.
+From (5) we can solve for $s$
+
+\begin{equation}
+  \begin{bmatrix}
+    su_i\\sv_i\\ s
+  \end{bmatrix}=\begin{bmatrix}
+    R, T
+  \end{bmatrix}\begin{bmatrix}
+    \mathbf{P_i}\\ 1
+  \end{bmatrix}=\begin{bmatrix}
+    \mathbf{r}_1\mathbf{P}_i+t_1\\\mathbf{r}_2\mathbf{P}_i+t_2\\\mathbf{r}_3\mathbf{P}_i+t_3
+  \end{bmatrix}\implies s=\mathbf{r}_3\mathbf{P}_i+t_3.
+\end{equation}
+
+Substituting $s=\mathbf{r}_3\mathbf{P}_i+t_3$ into (5) based on the result from (6)  gives
+
+\begin{align}
+  u_i\parens{\mathbf{r_3}\mathbf{P}_i+t_3}-\mathbf{r_1}\mathbf{P}_i+t_1=0,\\
+  v_i\parens{\mathbf{r_3}\mathbf{P}_i+t_3}-\mathbf{r_2}\mathbf{P}_i+t_2=0.
+\end{align}
+
+Substituting the definition of $R$ into (7) and (8) simplifies to
+
+\begin{align}
+  u_iZ_i(1+\tau^2)-X_i(1-\tau^2)-Y_i(2\tau)-t_1(1+\tau^2)=0,\\
+  v_iZ_i(1+\tau^2)+X_i(2\tau)-Y_i(1-\tau^2)-t_2(1+\tau^2)=0.
+\end{align}
+
+Next, we introduce another change of variables
+
+\begin{equation}
+  t_i'=t_i(1+\tau^2).
+\end{equation}
+  
+Substituting (10) into (8) and (9) gives
+
+\begin{align}
+  E_i^x=u_iZ_i(1+\tau^2)-X_i(1-\tau^2)-Y_i(2\tau)-t'_1=0,\\
+  E_i^y=v_iZ_i(1+\tau^2)+X_i(2\tau)-Y_i(1-\tau^2)-t'_2=0.
+\end{align}
+
+This reduces the problem such that (12) and (13) are now both second degree polynomials. Factoring out $\tau$ gives
+
+\begin{align}
+  E_i^x=(u_iZ_i+X_i)\tau^2-2Y_i\tau+u_iZ_i-X_i-t'_1=0,\\
+  E_i^y=(v_iZ_i+Y_i)\tau^2+2X_i\tau+v_iZ_i-Y_i-t'_2=0.
+\end{align}
+
+We can now formulate this as a least-squares problem
+
+\begin{equation}
+  \min_{t_1',t_2',\tau}\sum_{i=1}^N(E_i^x)^2+(E_i^y)^2.
+\end{equation}
+
+To further simplify the problem, we can find a closed form solution for $t_1'$ and $t_2'$ in terms of $\tau$. If we fix $\tau$ as a constant, we have the following optimization problem
+
+\begin{equation}
+  \min_{t_1',t_2'}\sum_{i=1}^N(E_i^x)^2+(E_i^y)^2=\min_{t_1'}\sum_{i=1}^N(E_i^x)^2+\min_{t_2'}\sum_{i=1}^N(E_i^y)^2.
+\end{equation}
+
+First we solve for $t_1'$. The first order optimality condition is
+
+\begin{equation}
+    \frac{d}{dt_1'}\sum_{i=1}^N(E_i^x)^2=0\implies \sum_{i=1}^N\parens{\frac{d}{dt_1'}(E_i^x)^2}=0
+\end{equation}
+
+Differentiating by the chain rule gives
+
+\begin{equation}
+  \frac{d}{dt_1'}(E_i^x)^2=2\parens{\frac{d}{dt_1'}E_{i}}E_i^x=-2E_i^x.
+\end{equation}
+
+Substituting (19) into (18)
+
+\begin{equation}
+  \sum_{i=1}^N\parens{-2E_i^x}= \sum_{i=1}^NE_i^x=0.
+\end{equation}
+
+Finally solving for $t_1'$ gives
+
+\begin{equation}
+  t_1'=\frac{1}{N}\sum_{i=1}^N\parens{(u_iZ_i+X_i)\tau^2-2Y_i\tau+u_iZ_i-X_i}.
+\end{equation}
+
+Repeating the same for $t_2'$ gives
+
+\begin{equation}
+  t_2'=\frac{1}{N}\sum_{i=1}^N\parens{(v_iZ_i+Y_i)\tau^2+2X_i\tau+v_iZ_i-Y_i}.
+\end{equation}
+
+Observe $t_1'$ and $t_2'$ are second degree polynomials of $\tau$. Let us define the constants
+
+\begin{align}
+  A_1=\frac{1}{N}\sum_{i=1}^N (u_iZ_i+X_i)\\
+  B_1=\frac{1}{N}\sum_{i=1}^N (-2Y_i)\\
+  C_1=\frac{1}{N}\sum_{i=1}^N (u_iZ_i-X_i)\\
+  A_2=\frac{1}{N}\sum_{i=1}^N (v_iZ_i+Y_i)\\
+  B_2=\frac{1}{N}\sum_{i=1}^N (2X_i)\\
+  C_2=\frac{1}{N}\sum_{i=1}^N (v_i Z_i-Y_i)
+\end{align}
+
+Now we can rewrite the errors as
+
+\begin{align}
+  E_i^x=(u_iZ_i+X_i-A_1)\tau^2+(-2Y_i-B_1)\tau+u_iZ_i-X_i-C_1=0,\\
+  E_i^y=(v_iZ_i+Y_i-A_2)\tau^2+(2X_i-B_2)\tau+v_iZ_i-Y_i-C_2=0.
+\end{align}
+
+Substituting back into our least-squares problem, we now have a single variable optimization problem 
+
+\begin{equation}
+  \min_{\tau}C(\tau),\qquad C(t)=\sum_{i=1}^N(E_i^x)^2+(E_i^y)^2.
+\end{equation}
+
+Observe $C(\tau)$ is a fourth degree polynomial. Thus the first-order optimality condition is simply a third-degree polynomial of $\tau$. Cardano's formula provides a closed form solution to this polynomial.
+
+The final step is to recover $t_1$, $t_2$, and $\theta$ as
+
+\begin{align}
+  t_1=\frac{t_1'}{(1+\tau^2)},\\
+  t_2=\frac{t_2'}{(1+\tau^2)},\\
+  \theta=2\tan^{-1}(\tau).
+\end{align}
+
+Thus we have shown a closed form solution for the constrained perspective-n-point problem.
+
+\newpage 
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
