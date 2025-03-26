@@ -1,14 +1,14 @@
 # Fdb version 4
-["bibtex main"] 1742332890.64293 "main.aux" "main.bbl" "main" 1742348732.77359 0
-  "./references.bib" 1742330498.88302 249 1c31e44b79bb8b569741364ef6a57656 ""
+["bibtex main"] 1743002815.04761 "main.aux" "main.bbl" "main" 1743002816.54536 0
+  "./references.bib" 1743002721.93653 249 1c31e44b79bb8b569741364ef6a57656 ""
   "/usr/local/texlive/2024/texmf-dist/bibtex/bst/ieeetran/IEEEtran.bst" 1440712899 57748 7c8250ecf02814ce6ddc0cdbb63df1dd ""
-  "main.aux" 1742348732.43182 593 a659deeea991887112b210414900d93f "pdflatex"
+  "main.aux" 1743002816.21797 593 a659deeea991887112b210414900d93f "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1742348731.36818 "/Users/joshuanichols/Documents/repositories/photonvision-pnp-writeup/main.tex" "main.pdf" "main" 1742348732.77377 0
-  "/Users/joshuanichols/Documents/repositories/photonvision-pnp-writeup/main.tex" 1742348731.09173 8586 9a99c6f501197abeb7acf723d79e1c2d ""
+["pdflatex"] 1743002815.18154 "/Users/joshuanichols/Documents/repositories/constrained-pnp/main.tex" "main.pdf" "main" 1743002816.54556 0
+  "/Users/joshuanichols/Documents/repositories/constrained-pnp/main.tex" 1743002721.93642 8586 9a99c6f501197abeb7acf723d79e1c2d ""
   "/usr/local/texlive/2024/texmf-dist/fonts/enc/dvips/base/8r.enc" 1165713224 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
   "/usr/local/texlive/2024/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/local/texlive/2024/texmf-dist/fonts/tfm/adobe/palatino/pplb7t.tfm" 1136768653 1616 371d1ee60c04b008c8fd760060cd34f1 ""
@@ -240,10 +240,10 @@
   "/usr/local/texlive/2024/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1712114335.31348 5467645 128b85b7cde5f5edc5cb7f1dd7ff8736 ""
   "/usr/local/texlive/2024/texmf-var/web2c/pdftex/pdflatex.fmt" 1712114327 8221437 827557639bf1e8924ca7859184c5a8bb ""
   "/usr/local/texlive/2024/texmf.cnf" 1710266656 577 e590dabc9e28c5b61546e15f63eebcdf ""
-  "main.aux" 1742348732.43182 593 a659deeea991887112b210414900d93f "pdflatex"
-  "main.bbl" 1742332890.76605 1058 48dc301b3d3dc53d771bd4da545aeed6 "bibtex main"
-  "main.out" 1742348732.43224 244 7484dd6771bd1f0d02a9cdddeb17a95a "pdflatex"
-  "main.tex" 1742348731.09173 8586 9a99c6f501197abeb7acf723d79e1c2d ""
+  "main.aux" 1743002816.21797 593 a659deeea991887112b210414900d93f "pdflatex"
+  "main.bbl" 1743002815.17715 1058 48dc301b3d3dc53d771bd4da545aeed6 "bibtex main"
+  "main.out" 1743002816.21859 244 7484dd6771bd1f0d02a9cdddeb17a95a "pdflatex"
+  "main.tex" 1743002721.93642 8586 9a99c6f501197abeb7acf723d79e1c2d ""
   (generated)
   "main.aux"
   "main.log"
