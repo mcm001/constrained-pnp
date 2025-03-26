@@ -8,10 +8,15 @@ from scipy.spatial.transform import Rotation as Rot
 import cv2
 
 def solve_planar_pnp_naive(world_points, image_points, K):
+  N = len(world_points)
+
   def residuals(params, image_points, world_points, K):
     residuals = np.array([])
 
-    for (p, P) in zip(image_points, world_points):
+    for i in range(N):
+      p = image_points[i,:].T
+      P = np.array([world_points[i,:]]).T
+
       x, z, theta = params
 
       R = np.array([
@@ -42,23 +47,17 @@ def solve_planar_pnp_naive(world_points, image_points, K):
 
     return residuals
 
-  # Initial guess for [x, y, theta]
-  init_params = np.array([0, 0, 0])
   
   # Solve the least-squares problem to minimize the residuals
+  init_params = np.array([0, 0, 0])
   result = scipy.optimize.least_squares(residuals, 
                                         init_params, 
                                         args=(image_points, world_points, K))
   x, z, theta = result.x
 
-  # We have now solved for the extrinsics matrix of the camera, and need to invert the
-  # transformation to get the camera pose.
   R = Rot.from_euler('y', theta).as_matrix()
   T = np.array([[x, 0, z]]).T
-  inv_R = R.T # The inverse of a rotation matrix is its transpose.
-  inv_T = -R.T @ T
-  
-  return inv_R, inv_T
+  return R, T
 
 def solve_planar_pnp_polynomial(world_points, 
                                 image_points, 
@@ -66,29 +65,10 @@ def solve_planar_pnp_polynomial(world_points,
   raise Exception("Polynomial planar pnp not implemented")
 
 def solve_planar_pnp_opencv(world_points, image_points, K):
-  """
-  Solves the planar PnP problem using OpenCV's solvePnP.
-  Converts the list of 3x1 and 2x1 points into Nx3 and Nx2 arrays.
-  Inverts the obtained pose to return the camera pose relative to the world.
-  """
-  # Convert world_points (list of (3,1) arrays) to an (N,3) array.
-  object_points = np.array([pt.ravel() for pt in world_points], dtype=np.float32)
-  # Convert image_points (list of (2,1) arrays) to an (N,2) array.
-  image_points_arr = np.array([pt.ravel() for pt in image_points], dtype=np.float32)
-  
-  # Use OpenCV's solvePnP with the iterative method.
-  success, rvec, tvec = cv2.solvePnP(object_points, image_points_arr, K, None, flags=cv2.SOLVEPNP_ITERATIVE)
-  if not success:
-    raise Exception("cv2.solvePnP failed to find a solution.")
-  
-  # Convert rotation vector to a rotation matrix.
+  _, rvec, tvec = cv2.solvePnP(world_points, image_points, K, None, flags=cv2.SOLVEPNP_ITERATIVE)
   R_cv, _ = cv2.Rodrigues(rvec)
   T_cv = tvec
-  
-  # Invert the transformation to get the camera pose relative to the world.
-  inv_R = R_cv.T
-  inv_T = -R_cv.T @ T_cv
-  return inv_R, inv_T
+  return R_cv, T_cv
 
 class Strategy(Enum):
   NAIVE = auto()
@@ -108,8 +88,8 @@ def solve_planar_pnp(strategy,
 
   Args:
     strategy (Strategy)
-    world_points (3x1 np.array list)
-    image_points (2x1 np.array list)
+    world_points (3xN np.array)
+    image_points (2xN np.array)
     K (3x3 np.array)
 
   Returns:
@@ -117,9 +97,9 @@ def solve_planar_pnp(strategy,
   '''
   # Size assertions for matrices
   for p in world_points:
-    assert p.shape == (3, 1)
+    assert p.shape[0] == 3
   for p in image_points:
-    assert p.shape == (2, 1)
+    assert p.shape[1] == 2
   assert K.shape == (3, 3)
 
   if strategy == Strategy.NAIVE:
