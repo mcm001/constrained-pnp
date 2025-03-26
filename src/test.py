@@ -29,17 +29,20 @@ nwu_to_edn = np.array([[0, -1,  0],
 edn_to_nwu = nwu_to_edn.T
 world_cv = (nwu_to_edn @ world_nwu.T).T
 
-# SolvePnP
-dist_coeffs = np.zeros((4, 1), dtype=np.float32)
-R_res, T_res = solve_planar_pnp(Strategy.POLYNOMIAL, world_cv, image_points, K)
+strategies = [Strategy.POLYNOMIAL, Strategy.NAIVE, Strategy.OPENCV]
 
-# Invert the transformation to get the camera pose in the OpenCV coordinate frame.
-R_cam_cv = R_res.T
-t_cam_cv = -R_cam_cv @ T_res
+for strategy in strategies:
+    dist_coeffs = np.zeros((4, 1), dtype=np.float32)
+    R_res, T_res = solve_planar_pnp(strategy, world_cv, image_points, K)
 
-R = edn_to_nwu.T @ R_cam_cv @ edn_to_nwu #what the fuck
-T = edn_to_nwu @ t_cam_cv
+    # Invert the transformation to get the camera pose in the OpenCV coordinate frame.
+    R_cam_cv = R_res.T
+    t_cam_cv = -R_cam_cv @ T_res
 
-# Prints
-print("Rotation Matrix (NWU):\n", R)
-print("\nTranslation Vector (NWU):\n", T)
+    R = edn_to_nwu.T @ R_cam_cv @ edn_to_nwu #what the fuck
+    T = edn_to_nwu @ t_cam_cv
+
+    # Prints
+    print("Rotation Matrix (", str(strategy), "):\n", R)
+    print("Translation Vector (", str(strategy), "):\n", T)
+    print("")
