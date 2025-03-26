@@ -33,9 +33,6 @@ world_cv = (nwu_to_edn @ world_nwu.T).T
 dist_coeffs = np.zeros((4, 1), dtype=np.float32)
 R_res, T_res = solve_planar_pnp(Strategy.POLYNOMIAL, world_cv, image_points, K)
 
-print(R_res)
-print(T_res)
-
 # Invert the transformation to get the camera pose in the OpenCV coordinate frame.
 R_cam_cv = R_res.T
 t_cam_cv = -R_cam_cv @ T_res
