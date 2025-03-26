@@ -6,3 +6,4 @@
 *.out
 *.gz
 *.blg
+src/__pycache__
