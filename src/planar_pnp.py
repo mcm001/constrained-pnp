@@ -5,6 +5,7 @@ from enum import Enum, auto
 import numpy as np
 import scipy
 from scipy.spatial.transform import Rotation as Rot
+import cv2
 
 def solve_planar_pnp_naive(world_points, image_points, K):
   def residuals(params, image_points, world_points, K):
@@ -64,9 +65,35 @@ def solve_planar_pnp_polynomial(world_points,
                                 K):
   raise Exception("Polynomial planar pnp not implemented")
 
+def solve_planar_pnp_opencv(world_points, image_points, K):
+  """
+  Solves the planar PnP problem using OpenCV's solvePnP.
+  Converts the list of 3x1 and 2x1 points into Nx3 and Nx2 arrays.
+  Inverts the obtained pose to return the camera pose relative to the world.
+  """
+  # Convert world_points (list of (3,1) arrays) to an (N,3) array.
+  object_points = np.array([pt.ravel() for pt in world_points], dtype=np.float32)
+  # Convert image_points (list of (2,1) arrays) to an (N,2) array.
+  image_points_arr = np.array([pt.ravel() for pt in image_points], dtype=np.float32)
+  
+  # Use OpenCV's solvePnP with the iterative method.
+  success, rvec, tvec = cv2.solvePnP(object_points, image_points_arr, K, None, flags=cv2.SOLVEPNP_ITERATIVE)
+  if not success:
+    raise Exception("cv2.solvePnP failed to find a solution.")
+  
+  # Convert rotation vector to a rotation matrix.
+  R_cv, _ = cv2.Rodrigues(rvec)
+  T_cv = tvec
+  
+  # Invert the transformation to get the camera pose relative to the world.
+  inv_R = R_cv.T
+  inv_T = -R_cv.T @ T_cv
+  return inv_R, inv_T
+
 class Strategy(Enum):
   NAIVE = auto()
   POLYNOMIAL = auto()
+  OPENCV = auto()
 
 def solve_planar_pnp(strategy, 
                      world_points, 
@@ -99,5 +126,7 @@ def solve_planar_pnp(strategy,
     return solve_planar_pnp_naive(world_points, image_points, K)
   elif strategy == Strategy.POLYNOMIAL:
     return solve_planar_pnp_polynomial(world_points, image_points, K)
+  elif strategy == Strategy.OPENCV:
+    return solve_planar_pnp_opencv(world_points, image_points, K)
   else:
     raise Exception("Attempted to call solve_planar_pnp with an undefined strategy.")

@@ -38,15 +38,42 @@ for pt in world_points:
     # Convert point to homogeneous coordinates by appending a 1
     pt_homogeneous = np.vstack((pt, np.ones((1, 1))))
     # Apply the robot-to-camera transformation
-    pt_cam_homogeneous = robot_to_camera @ pt_homogeneous
+    pt_cam_homogeneous = np.linalg.inv(robot_to_camera) @ pt_homogeneous
     # Convert back to 3D (drop the homogeneous coordinate)
     world_points_cam.append(pt_cam_homogeneous[:3])
 
 R, T = solve_planar_pnp(Strategy.NAIVE, world_points_cam, image_points, K)
 
-print("R_x: ", round(Rot.from_matrix(R).as_euler('xyz')[0].item(), 3))
-print("R_x: ", round(Rot.from_matrix(R).as_euler('xyz')[1].item(), 3))
-print("R_x: ", round(Rot.from_matrix(R).as_euler('xyz')[2].item(), 3))
-print("T_x: ", round(T[0, 0].item(), 3))
-print("T_y: ", round(T[1, 0].item(), 3))
-print("T_z: ", round(T[2, 0].item(), 3))
+# Undo the pre-transformation to recover the camera pose relative to the original world coordinates.
+R_rc = robot_to_camera[:3, :3]
+t_rc = robot_to_camera[:3, 3].reshape(3, 1)
+
+# Compose the transformations: first apply robot_to_camera, then the solver's (R, T)
+R_final = R @ R_rc
+T_final = R @ t_rc + T
+
+print("Naive:")
+print("R_x: ", round(Rot.from_matrix(R_final).as_euler('xyz')[0].item(), 3))
+print("R_y: ", round(Rot.from_matrix(R_final).as_euler('xyz')[1].item(), 3))
+print("R_z: ", round(Rot.from_matrix(R_final).as_euler('xyz')[2].item(), 3))
+print("T_x: ", round(T_final[0, 0].item(), 3))
+print("T_y: ", round(T_final[1, 0].item(), 3))
+print("T_z: ", round(T_final[2, 0].item(), 3))
+
+R, T = solve_planar_pnp(Strategy.OPENCV, world_points_cam, image_points, K)
+
+# Undo the pre-transformation to recover the camera pose relative to the original world coordinates.
+R_rc = robot_to_camera[:3, :3]
+t_rc = robot_to_camera[:3, 3].reshape(3, 1)
+
+# Compose the transformations: first apply robot_to_camera, then the solver's (R, T)
+R_final = R @ R_rc
+T_final = R @ t_rc + T
+
+print("\nOpencv:")
+print("R_x: ", round(Rot.from_matrix(R_final).as_euler('xyz')[0].item(), 3))
+print("R_y: ", round(Rot.from_matrix(R_final).as_euler('xyz')[1].item(), 3))
+print("R_z: ", round(Rot.from_matrix(R_final).as_euler('xyz')[2].item(), 3))
+print("T_x: ", round(T_final[0, 0].item(), 3))
+print("T_y: ", round(T_final[1, 0].item(), 3))
+print("T_z: ", round(T_final[2, 0].item(), 3))
