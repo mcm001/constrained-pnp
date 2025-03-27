@@ -15,6 +15,9 @@ def solve(K: np.ndarray, image_points: np.ndarray, world_points: np.ndarray, rob
     print(f"image points shape {image_points.shape}")
     print(f"world points shape {world_points.shape}")
 
+    print(f"image points: {image_points}")
+    print(f"world points: {world_points}")
+
     # Eliminate robot to camera transform
     world_nwu = (np.linalg.inv(robot_to_camera) @ world_points)[:3].T
 
@@ -50,8 +53,8 @@ NetworkTableInstance.getDefault().startLocal()
 
 cam = PhotonCamera("foo")
 sim = PhotonCameraSim(cam)
-sim.setMaxSightRange(999)
-sim.setMinTargetAreaPercent(0.0001)
+sim.setMaxSightRange(20)
+sim.setMinTargetAreaPercent(0.01)
 
 robotToCamera = Transform3d()
 
@@ -97,15 +100,18 @@ for corner in imagePoints:
 for loc, id in fiducialIDs:
     cv2.putText(image, str(id), (int(loc.x), int(loc.y)), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 1)
 
-# cv2.imshow("Detected Corners", image)
-# cv2.waitKey(1)  # Update window with 1ms delay
+cv2.imshow("Detected Corners", image)
+cv2.waitKey(1) 
+cv2.destroyAllWindows()
 
 print(f"Image points: {imagePoints}")
 print(f"World points: {worldPoints}")
 
 # convert arrays
-imagePoints = np.array([(p.x, p.y) for p in imagePoints], dtype=np.float32).reshape(-1, 1, 2)
-worldPoints = np.array([(p.x, p.y, p.z, 1) for p in worldPoints], dtype=np.float32).reshape(4, -1)
+imagePoints = np.array([(p.x, p.y) for p in imagePoints], dtype=np.float32)
+imagePoints = imagePoints.reshape(-1, 1, 2)
+worldPoints = np.array([(p.x, p.y, p.z, 1) for p in worldPoints], dtype=np.float32)
+worldPoints = worldPoints.T.reshape(4, -1)
 
 solve(
     sim.prop.getIntrinsics(),
