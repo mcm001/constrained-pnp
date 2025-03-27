@@ -56,7 +56,8 @@ sim = PhotonCameraSim(cam)
 sim.setMaxSightRange(20)
 sim.setMinTargetAreaPercent(0.01)
 
-robotToCamera = Transform3d()
+robotPose = Pose3d(x=3, y=6, z=0.0, rotation=Rotation3d())
+robotToCamera = Transform3d(initial=Pose3d(), final=Pose3d(x=0.5, y=0, z=0.5, rotation=Rotation3d.fromDegrees(0, -10, 0)))
 
 system = VisionSystemSim("simSystem")
 system.addAprilTags(
@@ -64,8 +65,6 @@ system.addAprilTags(
 )
 system.addCamera(sim, robotToCamera)
 
-
-robotPose = Pose3d(x=0, y=8, z=0.5, rotation=Rotation3d())
 system.update(robotPose)
 
 # And marshall into a sane format
@@ -101,7 +100,7 @@ for loc, id in fiducialIDs:
     cv2.putText(image, str(id), (int(loc.x), int(loc.y)), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 1)
 
 cv2.imshow("Detected Corners", image)
-cv2.waitKey(1) 
+cv2.waitKey() 
 cv2.destroyAllWindows()
 
 print(f"Image points: {imagePoints}")
