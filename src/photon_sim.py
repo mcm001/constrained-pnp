@@ -118,4 +118,4 @@ solve(
     imagePoints, worldPoints, robotToCamera.toMatrix()
 )
 
-print(f"Expected robot to be at {robotPose}")
+print(f"Expected robot to be at:\n{robotPose.toMatrix()}")
