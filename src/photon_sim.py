@@ -57,7 +57,7 @@ sim.setMaxSightRange(20)
 sim.setMinTargetAreaPercent(0.01)
 
 robotPose = Pose3d(x=3, y=6, z=0.0, rotation=Rotation3d())
-robotToCamera = Transform3d(initial=Pose3d(), final=Pose3d(x=0.5, y=0, z=0.5, rotation=Rotation3d.fromDegrees(0, -10, 0)))
+robotToCamera = Transform3d(initial=Pose3d(), final=Pose3d(x=0.5, y=0, z=0.5, rotation=Rotation3d.fromDegrees(-11, -10, -13)))
 
 system = VisionSystemSim("simSystem")
 system.addAprilTags(
