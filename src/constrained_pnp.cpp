@@ -5,11 +5,11 @@
 #include <sleipnir/autodiff/Variable.hpp>
 #include <sleipnir/autodiff/VariableBlock.hpp>
 
-using namespace cpnp;
-using namespace sleipnir;
-
-frc::Pose2d solve_naive(const ProblemParams params)
+frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
 {
+  using namespace cpnp;
+  using namespace sleipnir;
+
   OptimizationProblem problem{};
 
   // robot pose
@@ -23,12 +23,12 @@ frc::Pose2d solve_naive(const ProblemParams params)
   auto cosθ = sleipnir::cos(robot_θ);
   VariableMatrix R_T{
       {cosθ, 0, sinθ, robot_x},
-      {0, 1, robot_y},
+      {0, 1, 0, robot_y},
       {-sinθ, 0, cosθ, 0},
   };
 
   // TODO - can i just do this whole matrix at once, one col per observation?
-  auto predicted_image_point = params.K * R_T * params.worldPoints;
+  auto predicted_image_point = params.K * (R_T * params.worldPoints);
 
   auto u_pred = sleipnir::CwiseReduce(predicted_image_point.Row(0), predicted_image_point.Row(2), std::divides<>{});
   auto v_pred = sleipnir::CwiseReduce(predicted_image_point.Row(1), predicted_image_point.Row(2), std::divides<>{});
@@ -41,7 +41,7 @@ frc::Pose2d solve_naive(const ProblemParams params)
 
   problem.Minimize(cost);
 
-  auto status = problem.Solve();
+  auto status = problem.Solve({.diagnostics=true});
 
   return frc::Pose2d{units::meter_t{robot_x.Value()}, units::meter_t(robot_y.Value()), frc::Rotation2d(units::radian_t{robot_θ.Value()})};
 }

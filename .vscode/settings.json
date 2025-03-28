@@ -7,6 +7,8 @@
         "initializer_list": "cpp",
         "vector": "cpp",
         "span": "cpp",
-        "type_traits": "cpp"
+        "type_traits": "cpp",
+        "numbers": "cpp",
+        "limits": "cpp"
     }
 }

@@ -12,6 +12,8 @@ namespace cpnp {
         // Image points, 
         Eigen::Matrix<double, 2, Eigen::Dynamic> imagePoints;
         Eigen::Matrix<double, 3, 3> K;
+
+        explicit ProblemParams(int nLandmarks) : worldPoints(4, nLandmarks), imagePoints(2, nLandmarks) {}
     };
 
     frc::Pose2d solve_naive(const ProblemParams& problem);
