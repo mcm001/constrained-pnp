@@ -26,6 +26,10 @@ add_library(constrained_pnp
     src/constrained_pnp.cpp
 )
 
+target_include_directories(constrained_pnp PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
 target_link_libraries(constrained_pnp PUBLIC
     wpimath
 )

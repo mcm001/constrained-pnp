@@ -1,2 +1,12 @@
 {
+    "files.associations": {
+        "core": "cpp",
+        "array": "cpp",
+        "utility": "cpp",
+        "algorithm": "cpp",
+        "initializer_list": "cpp",
+        "vector": "cpp",
+        "span": "cpp",
+        "type_traits": "cpp"
+    }
 }
