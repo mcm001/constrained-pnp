@@ -8,3 +8,4 @@
 *.blg
 src/__pycache__
 .venv
+build
