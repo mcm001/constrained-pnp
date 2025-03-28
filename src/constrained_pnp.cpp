@@ -14,8 +14,11 @@ frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
 
   // robot pose
   auto robot_x = problem.DecisionVariable();
-  auto robot_y = problem.DecisionVariable();
+  auto robot_z = problem.DecisionVariable();
   auto robot_θ = problem.DecisionVariable();
+
+  robot_x.SetValue(4);
+  robot_z.SetValue(-1);
 
   // Generate r_t
   // rotation about +Y plus pose
@@ -23,8 +26,8 @@ frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
   auto cosθ = sleipnir::cos(robot_θ);
   VariableMatrix R_T{
       {cosθ, 0, sinθ, robot_x},
-      {0, 1, 0, robot_y},
-      {-sinθ, 0, cosθ, 0},
+      {0, 1, 0, 0},
+      {-sinθ, 0, cosθ, robot_z},
   };
 
   // TODO - can i just do this whole matrix at once, one col per observation?
@@ -39,9 +42,15 @@ frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
   for (const auto &v : v_pred)
     cost += v;
 
+  fmt::println("Initial cost: {}", cost.Value());
+  fmt::println("Predicted corners:\n{}\n{}", u_pred.Value(), v_pred.Value());
+
   problem.Minimize(cost);
 
-  auto status = problem.Solve({.diagnostics=true});
+  auto status = problem.Solve({.diagnostics=false});
 
-  return frc::Pose2d{units::meter_t{robot_x.Value()}, units::meter_t(robot_y.Value()), frc::Rotation2d(units::radian_t{robot_θ.Value()})};
+  fmt::println("Final cost: {}", cost.Value());
+
+  // TODO lmao this is not x,y ???
+  return frc::Pose2d{units::meter_t{robot_x.Value()}, units::meter_t(robot_z.Value()), frc::Rotation2d(units::radian_t{robot_θ.Value()})};
 }
