@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.20)
 
 project(constrained_pnp)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 enable_testing()
 
 # only build wpimath
@@ -22,6 +24,10 @@ add_subdirectory(allwpilib)
 
 add_library(constrained_pnp
     src/constrained_pnp.cpp
+)
+
+target_link_libraries(constrained_pnp PUBLIC
+    wpimath
 )
 
 include(FetchContent)
