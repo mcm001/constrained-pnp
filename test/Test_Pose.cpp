@@ -6,11 +6,12 @@ TEST(Pose, Naive) {
     cpnp::ProblemParams params(4);
 
     params.worldPoints << 
--4.38785,   -4.22275,   -4.22275,  -4.38785, 
--0.14123904,-0.14123904,-0.3054346,-0.3054346,
-3.96938119, 3.96938119, 3.95212354,3.95212354,
-1,          1,          1,         1;
+    2.5, 2.5, 2.5, 2.5,
+    0 - 0.08255, 0 - 0.08255, 0 + 0.08255, 0 + 0.08255,
+    0.5 - 0.08255, 0.5 + 0.08255, 0.5 + 0.08255, 0.5 - 0.08255,
+    1, 1, 1, 1;
 
+    std::cout << params.worldPoints << std::endl;
 
 /*
 world_points
@@ -45,8 +46,8 @@ array([[-4.38785   , -0.14123904,  3.96938119],
 */
 
     params.imagePoints << 
-        401.35592651, 434.62026978, 434.35839844, 400.89996338, 
-        352.10610962, 352.10610962, 318.79934692, 318.79934692;
+    333, 333, 267, 267,
+    -17, -83, -83, -17;
 
 /*
 image_points
@@ -92,7 +93,11 @@ array([[599.375     ,   0.        , 479.5       ],
        [  0.        ,   0.        ,   1.        ]])
 */
 
-    auto ret = cpnp::solve_naive(params);
+    auto ret = cpnp::solve_polynomial(params);
 
-    fmt::println("Robot is at:\n{}", ret.ToMatrix());
+    fmt::println("Polynomial method says robot is at:\n{}", ret.ToMatrix());
+
+    ret = cpnp::solve_naive(params);
+
+    fmt::println("Naive method says robot is at:\n{}", ret.ToMatrix());
 }
