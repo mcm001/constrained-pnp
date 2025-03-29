@@ -33,14 +33,14 @@ def solve(K: np.ndarray, image_points: np.ndarray, world_points: np.ndarray, rob
     # TODO - undistort image points here, or consider converting to normalized image coordinates
 
     for strategy in strategies:
-        R_res, T_res = solve_planar_pnp(strategy, world_cv, image_points, K)
+        R_cv, T_cv = solve_planar_pnp(strategy, world_cv, image_points, K)
+
+        R_nwu = (edn_to_nwu @ R_cv) @ edn_to_nwu.T #what the fuck
+        T_nwu = edn_to_nwu @ T_cv
 
         # Invert the transformation to get the camera pose in the OpenCV coordinate frame.
-        R_cam_cv = R_res.T
-        t_cam_cv = -R_cam_cv @ T_res
-
-        R = edn_to_nwu.T @ R_cam_cv @ edn_to_nwu #what the fuck
-        T = edn_to_nwu @ t_cam_cv
+        R = R_nwu.T
+        T = -R_nwu.T @ T_nwu
 
         # Prints
         print("Rotation Matrix (", str(strategy), "):\n", R)
