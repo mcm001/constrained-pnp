@@ -74,7 +74,7 @@ def solve_planar_pnp_polynomial(world_points,
   def cost(x_prime, z_prime, tau):
     R_bar = np.array([
        [1 - tau * tau,   0,      2 * tau   ],
-       [      0,         1,         0      ],
+       [      0,     1 + tau * tau,         0      ],
        [   -2 * tau,     0,   1 - tau * tau]
     ])
 
@@ -153,9 +153,9 @@ def solve_planar_pnp_polynomial(world_points,
   tau = None
   minimum = math.inf
   for root in real_valued:
-    if np.polyval(coeffs_tau_derivative, root) < minimum:
+    if np.polyval(coeffs_tau, root) < minimum:
       tau = root
-      minimum = np.polyval(coeffs_tau_derivative, root)
+      minimum = np.polyval(coeffs_tau, root)
     
   # Finally extract x, z, and theta from tau
   x = np.polyval(coeffs_x, tau)[0] / (1 + tau * tau)
