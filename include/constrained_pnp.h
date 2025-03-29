@@ -3,6 +3,7 @@
 #include <frc/geometry/Pose2d.h>
 #include <frc/geometry/Transform3d.h>
 #include <Eigen/Core>
+#include <Eigen/LU>
 #include <vector>
 
 namespace cpnp {
@@ -17,4 +18,6 @@ namespace cpnp {
     };
 
     frc::Pose2d solve_naive(const ProblemParams& problem);
+
+    frc::Pose2d solve_polynomial(const ProblemParams& problem);
 }
