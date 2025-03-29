@@ -18,6 +18,11 @@ image_points = (np.array(data["point_observations"]["2DData"]).T).reshape(-1, 1,
 # World points
 world_points = np.array(data["field2points"]["2DData"])
 
+print(f"image points shape {image_points.shape}")
+print(f"world points shape {world_points.shape}")
+print(f"image points: {image_points}")
+print(f"world points: {world_points}")
+
 # Eliminate robot to camera transform
 robot_to_camera = np.array(data["groundTruthRobot2camera"]["2DData"])
 world_nwu = (np.linalg.inv(robot_to_camera) @ world_points)[:3].T
