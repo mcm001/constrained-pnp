@@ -32,6 +32,8 @@
 #include <frc/geometry/Translation2d.h>
 #include <units/length.h>
 
+/// @brief Get the positions of the corners of a tag relative to the tag origin, in homogeneous coordinates.
+/// @return A 4x4 matrix where the first three rows are the x, y, and z coordinates of the corners, and the last row is all ones.
 Eigen::Matrix4d tagCenterToCorners() {
   const units::meter_t width{6.0_in};
   const units::meter_t height{6.0_in};
@@ -49,6 +51,8 @@ Eigen::Matrix4d tagCenterToCorners() {
   return ret;
 }
 
+/// @brief Get a list of test tags' corners in homogeneous coordinates. The locations of these tags is hard-coded, because I'm lazy
+/// @return A 4xN matrix where the first three rows are the x, y, and z coordinates of the corners, and the last row is all ones.
 Eigen::Matrix<double, 4, Eigen::Dynamic> getTestTags() {
   // change me to add more tags
   Eigen::Matrix<double, 4, Eigen::Dynamic> ret(4, 8);
@@ -74,6 +78,12 @@ Eigen::Matrix<double, 4, Eigen::Dynamic> getTestTags() {
   return ret;
 }
 
+
+/// @brief Project the corners of the tags into the camera frame.
+/// @param K OpenCV camera calibration matrix
+/// @param field2camera_wpi The location of the camera in the field frame. This is the "wpi" camera pose, with X forward, Y left, and Z up.
+/// @param field2corners The locations of the corners of the tags in the field frame
+/// @return Observed pixel locations
 Eigen::Matrix<double, 2, Eigen::Dynamic>
 projectPoints(Eigen::Matrix<double, 3, 3> K,
               Eigen::Matrix4d field2camera_wpi,
