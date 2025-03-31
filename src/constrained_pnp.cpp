@@ -137,6 +137,16 @@ frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
   using namespace cpnp;
   using namespace sleipnir;
 
+  // Convert the points from the WPI coordinate system (NWU) to OpenCV's coordinate system 
+  // (EDN).
+  Eigen::Matrix<double, 4, 4> nwu_to_edn;
+  nwu_to_edn <<
+    0, -1,  0,  0,
+    0,  0, -1,  0,
+    1,  0,  0,  0,
+    0,  0,  0,  1;
+  auto world_points_opencv = nwu_to_edn * params.worldPoints;
+
   OptimizationProblem problem{};
 
   // robot pose
@@ -144,8 +154,9 @@ frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
   auto robot_z = problem.DecisionVariable();
   auto robot_θ = problem.DecisionVariable();
 
-  robot_x.SetValue(4);
-  robot_z.SetValue(-1);
+  robot_x.SetValue(0);
+  robot_z.SetValue(0);
+  robot_θ.SetValue(0);
 
   // Generate r_t
   // rotation about +Y plus pose
@@ -158,16 +169,17 @@ frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
   };
 
   // TODO - can i just do this whole matrix at once, one col per observation?
-  auto predicted_image_point = params.K * (R_T * params.worldPoints);
+  auto predicted_image_point = params.K * (R_T * world_points_opencv);
 
   auto u_pred = sleipnir::CwiseReduce(predicted_image_point.Row(0), predicted_image_point.Row(2), std::divides<>{});
   auto v_pred = sleipnir::CwiseReduce(predicted_image_point.Row(1), predicted_image_point.Row(2), std::divides<>{});
 
   Variable cost;
-  for (const auto &u : u_pred)
-    cost += u;
-  for (const auto &v : v_pred)
-    cost += v;
+  for (int i = 0; i < u_pred.Cols(); ++i) {
+    auto E_x = u_pred(0, i) - params.imagePoints(0, i);
+    auto E_y = v_pred(0, i) - params.imagePoints(1, i);
+    cost += E_x * E_x + E_y * E_y;
+  }
 
   fmt::println("Initial cost: {}", cost.Value());
   fmt::println("Predicted corners:\n{}\n{}", u_pred.Value(), v_pred.Value());
@@ -178,8 +190,22 @@ frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
 
   fmt::println("Final cost: {}", cost.Value());
 
-  // TODO lmao this is not x,y ???
-  return frc::Pose2d{units::meter_t{robot_x.Value()}, units::meter_t(robot_z.Value()), frc::Rotation2d(units::radian_t{robot_θ.Value()})};
+  frc::Pose3d pose{frc::Translation3d{units::meter_t{robot_x.Value()}, units::meter_t{0}, units::meter_t(robot_z.Value())}, 
+                   frc::Rotation3d{units::radian_t{0}, units::radian_t{robot_θ.Value()}, units::radian_t{0}}};
+
+  Eigen::Matrix3d transform;
+  transform <<
+    0, 0, 1,
+    -1, 0, 0,
+    0, -1, 0;
+  frc::Rotation3d edn_to_nwu{transform};
+  frc::Pose3d nwu_pose{pose.Translation().RotateBy(edn_to_nwu), 
+                       -edn_to_nwu + pose.Rotation() + edn_to_nwu};
+
+  frc::Pose3d inv_pose{-nwu_pose.Translation().RotateBy(-nwu_pose.Rotation()),
+                       -nwu_pose.Rotation()};
+
+  return inv_pose.ToPose2d();
 }
 
 frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
@@ -244,18 +270,10 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
             0,         1,           0,          0,
       -(2 * tau) / (1 + tau * tau),     0,       (1 - tau * tau) / (1 + tau * tau),      z;
     
-    // std::cout << R_T << std::endl;
-    // std::cout << projected_point << std::endl;
-    // printf("(u[0]: %f), (u[1]: %f)\n", u(0), u(1));
-    // printf("(pp[0]: %f), (pp[1]: %f), (pp[2]: %f)\n", projected_point(0), projected_point(1), projected_point(2));
-
-
     double total_cost = 0;
     for (int i = 0; i < N; ++i) {
       Eigen::Matrix<double, 3, 1> u = normalized_image_points.block(0, i, 3, 1);
       Eigen::Matrix<double, 4, 1> P = world_points_cv.block(0, i, 4, 1);
-
-      // std::cout << P << std::endl;
 
       Eigen::Matrix<double, 3, 1> projected_point = R_T * P;
 
@@ -263,7 +281,6 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
       double residual_y = u(1) - projected_point(1) / projected_point(2);
       total_cost += residual_x * residual_x + residual_y * residual_y;
     }
-    // printf("Cost: %f\n", total_cost);
     return total_cost;
   };
 

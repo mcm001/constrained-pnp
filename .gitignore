@@ -10,3 +10,4 @@ src/__pycache__
 .venv
 build
 .cache
+compile_commands.json
