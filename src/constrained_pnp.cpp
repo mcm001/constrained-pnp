@@ -215,10 +215,19 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   //   6. Undo the change of variables and solve for theta, x, and z in terms of tau.
   //   7. Undo the opencv transform and invert the transform.
   int N = params.imagePoints.cols();
+
+  std::cout << params.imagePoints << std::endl;
   
   // Step 1
-  const auto K_inverse = params.K_inverse.block(0, 0, 2, 3);
+  const auto K_inverse = params.K.inverse().block(0, 0, 2, 3);
   Eigen::Matrix<double, 2, Eigen::Dynamic> normalized_image_points = K_inverse * params.imagePoints;
+  std::cout << normalized_image_points << std::endl;
+  double f_x = params.K(0, 0);
+  double f_y = params.K(1, 1);
+  double c_x = params.K(0, 2);
+  double c_y = params.K(1, 2);
+
+  fmt::println("f_x: {}, f_y: {}, c_x: {}, c_y: {}", f_x, f_y, c_x, c_y);
 
   // Step 2
   // constexpr Eigen::Matrix<double, 4, 4> nwu_to_edn{
@@ -246,6 +255,11 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   double a_000 = 0;
 
   for (int i = 0; i < N; i++) {
+    // Convert image points to normalized points
+    // double p_x = params.imagePoints(0, i);
+    // double p_y = params.imagePoints(1, i);
+    // double u = (p_x - c_x) / f_x;
+    // double v = (p_y - c_y) / f_y;
     double u = normalized_image_points(0, i);
     double v = normalized_image_points(1, i);
     // Note we do the opencv coordinate transform here to avoid an extra matrix multiply 
