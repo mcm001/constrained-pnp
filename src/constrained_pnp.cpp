@@ -199,9 +199,7 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
 
   // The algorithm works as follows
   // 
-  //   1. Convert image points to normalized image points.
-  //   2. Convert the world points into the opencv coordinate system.
-  //   3. Formulate a cost function using a change of variables:
+  //   1. Formulate a cost function using a change of variables:
   // 
   //       tau = tan(theta / 2)
   //       x' = x * (1 + tau * tau)
@@ -209,36 +207,22 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   // 
   //      Note this cost function is a fourth-order polynomial in terms of tau and second-
   //      order in terms of x' and y'.
-  //   4. Solve for x' and y' in terms of tau and eliminate them so the cost function 
+  //   2. Solve for x' and y' in terms of tau and eliminate them so the cost function 
   //      becomes a fourth-order polynomial in terms of tau.
-  //   5. Minimize the polynomial. This is possible by taking the derivative and finding
+  //   3. Minimize the polynomial. This is possible by taking the derivative and finding
   //      the roots of the resulting third-degree polynomial. There is a closed form
   //      solution for finding the roots of cubic polynomials with Carbano's formula 
   //      (fancy quadratic formula).
-  //   6. Undo the change of variables and solve for theta, x, and z in terms of tau.
-  //   7. Undo the opencv transform and invert the transform.
+  //   4. Undo the change of variables and solve for theta, x, and z in terms of tau.
+  //   5. Undo the opencv transform and invert the transform.
   int N = params.imagePoints.cols();
 
-  // Step 1
-  // const auto K_inverse = params.K.inverse().block(0, 0, 2, 3);
-  // Eigen::Matrix<double, 2, Eigen::Dynamic> normalized_image_points = K_inverse * params.imagePoints;
-  // std::cout << normalized_image_points << std::endl;
   double f_x = params.f_x;
   double f_y = params.f_y;
   double c_x = params.c_x;
   double c_y = params.c_y;
 
-  // fmt::println("f_x: {}, f_y: {}, c_x: {}, c_y: {}", f_x, f_y, c_x, c_y);
-
-  // Step 2
-  // constexpr Eigen::Matrix<double, 4, 4> nwu_to_edn{
-  //       {0, -1,  0,  0},
-  //       {0,  0, -1,  0},
-  //       {1,  0,  0,  0},
-  //       {0,  0,  0,  1}};
-  // const auto world_points_opencv = nwu_to_edn * params.worldPoints;
-
-  // Step 3
+  // Step 1
   // ok this looks unreadable but i swear it makes sense
   double a_400 = 0;
   double a_300 = 0;
@@ -261,10 +245,8 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
     double p_y = params.imagePoints(1, i);
     double u = (p_x - c_x) / f_x;
     double v = (p_y - c_y) / f_y;
-    // double u = normalized_image_points(0, i);
-    // double v = normalized_image_points(1, i);
-    // Note we do the opencv coordinate transform here to avoid an extra matrix multiply 
-    // at the start.
+    
+    // We do the opencv coordinate transform here to avoid an extra matrix multiply.
     double X = -params.worldPoints(1, i);
     double Y = -params.worldPoints(2, i);
     double Z = params.worldPoints(0, i);
@@ -377,33 +359,16 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   double x = x_prime / (1 + tau * tau);
   double z = z_prime / (1 + tau * tau);
   double theta = 2 * atan(tau);
-  // const frc::Pose3d pose{frc::Translation3d(units::meter_t{x}, 0_m, units::meter_t{z}), 
-  //                        frc::Rotation3d(0_rad, units::radian_t{theta}, 0_rad)};
-  
-  // Step 7
-  // constexpr Eigen::Matrix3d transform{{0, 0, 1}, {-1, 0, 0}, {0, -1, 0}};
-  // constexpr frc::Rotation3d edn_to_nwu{transform};
-  // const frc::Pose3d nwu_pose{pose.Translation().RotateBy(edn_to_nwu), 
-  //                           -edn_to_nwu + pose.Rotation() + edn_to_nwu};
-
-  // const frc::Pose3d inv_pose{-nwu_pose.Translation().RotateBy(-nwu_pose.Rotation()),
-  //                            -nwu_pose.Rotation()};
 
   // Manually writing out the math instead of using wpilib geometry objects.
   double nwu_x = z;
   double nwu_y = -x;
   double nwu_theta = -theta;
 
-  // const frc::Pose3d pose{frc::Translation3d(units::meter_t{nwu_x}, units::meter_t{nwu_y}, 0_m), 
-  //                        frc::Rotation3d(0_rad, 0_rad, units::radian_t{nwu_theta})};
-  // const frc::Pose3d inv_pose{-pose.Translation().RotateBy(-pose.Rotation()),
-  //                          -pose.Rotation()};
-  // return inv_pose.ToPose2d();
-
   double ncos = cos(-nwu_theta);
   double nsin = sin(-nwu_theta);
 
   return frc::Pose2d{units::meter_t{-(ncos * nwu_x - nsin * nwu_y)}, 
                      units::meter_t{-(nsin * nwu_x + ncos * nwu_y)},
-                     units::radian_t{-theta}};
+                     units::radian_t{-nwu_theta}};
 }
