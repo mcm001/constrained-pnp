@@ -137,7 +137,7 @@ TEST(PoseTest, Naive) {
 
   params.worldPoints = getTestTags();
 
-  frc::Transform3d robot2camera {frc::Pose3d{}, frc::Pose3d{frc::Translation3d{11.2_m, -5.2_m, 0_m}, frc::Rotation3d{0_rad, 0_rad, 82_rad}}};
+  frc::Transform3d robot2camera {frc::Pose3d{}, frc::Pose3d{frc::Translation3d{-1.3_m, 0.25_m, 0_m}, frc::Rotation3d{0_rad, 0_rad, -1.5_rad}}};
   params.imagePoints = projectPoints(params.K, robot2camera.ToMatrix(), params.worldPoints);
 
   auto t0 = std::chrono::high_resolution_clock::now();

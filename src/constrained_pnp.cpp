@@ -9,7 +9,7 @@
 // Returns the values of x which are roots of 
 // 
 //   y = a_3 * x^3 + a_2 * x^2 + a_1 * x + a_0. 
-std::array<std::optional<double>, 3> solve_cubic_roots(Eigen::Matrix<double, 4, 1> coeffs) {
+std::array<std::optional<double>, 3> solve_cubic_roots(const Eigen::Matrix<double, 4, 1>& coeffs) {
   // // TODO: make sure this actually works, i was done with the rest and wanted to test so
   // // this is chatgpt
   std::array<std::optional<double>, 3> roots = { std::nullopt, std::nullopt, std::nullopt };
@@ -113,23 +113,6 @@ double minimize_quartic(Eigen::Matrix<double, 5, 1> coeffs) {
     }
   }
   return min_x;
-}
-
-// // Finds the set of coefficients [a_0, a_1, a_2, a_3, a_4] which fit the provided samples.
-Eigen::Matrix<double, 5, 1> fit_quartic(Eigen::Matrix<double, 5, 1> xs, 
-                                        Eigen::Matrix<double, 5, 1> ys) {
-  Eigen::Matrix<double, 5, 5> A;
-  for (int i = 0; i < 5; ++i) {
-    double x = xs(i);
-    A(i, 0) = 1.0;
-    A(i, 1) = x;
-    A(i, 2) = x * x;
-    A(i, 3) = x * x * x;
-    A(i, 4) = x * x * x * x;
-  }
-  // TODO: use a linear solver or smth smarter here???
-  Eigen::Matrix<double, 5, 1> coeffs = A.inverse() * ys;
-  return coeffs; // coeffs = A⁻¹y.;
 }
 
 frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
@@ -239,29 +222,17 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   
   // Step 1
   auto t0 = std::chrono::high_resolution_clock::now();
-  auto K_inverse = params.K.inverse();
-  Eigen::Matrix<double, 3, Eigen::Dynamic> normalized_image_points{3, N};
-  for (int i = 0; i < N; ++i) {
-    Eigen::Matrix<double, 3, 1> homogenous_image_point;
-    homogenous_image_point(0, 0) = params.imagePoints(0, i);
-    homogenous_image_point(1, 0) = params.imagePoints(1, i);
-    homogenous_image_point(2, 0) = 1;
-    Eigen::Matrix<double, 3, 1> normalized_image_point = K_inverse * homogenous_image_point;
-    normalized_image_points(0, i) = normalized_image_point(0, 0);
-    normalized_image_points(1, i) = normalized_image_point(1, 0);
-    normalized_image_points(2, i) = normalized_image_point(2, 0);
-  }
+  const auto K_inverse = params.K.inverse().block(0, 0, 2, 3);
+  Eigen::Matrix<double, 2, Eigen::Dynamic> normalized_image_points = K_inverse * params.imagePoints;
 
   // Step 2
   auto t1 = std::chrono::high_resolution_clock::now();
-  Eigen::Matrix<double, 4, 4> nwu_to_edn;
-  nwu_to_edn <<
-    0, -1,  0,  0,
-    0,  0, -1,  0,
-    1,  0,  0,  0,
-    0,  0,  0,  1;
+  constexpr Eigen::Matrix<double, 4, 4> nwu_to_edn{
+        {0, -1,  0,  0},
+        {0,  0, -1,  0},
+        {1,  0,  0,  0},
+        {0,  0,  0,  1}};
   auto world_points_opencv = nwu_to_edn * params.worldPoints;
-
 
   auto t2 = std::chrono::high_resolution_clock::now();
   // Step 3
@@ -368,27 +339,6 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
 
     // total_cost += residual_x * residual_x + residual_y * residual_y;
   }
-
-  auto cost = [&](double x_prime, double z_prime, double tau) -> double {
-    double x = tau;
-    double y = x_prime;
-    double z = z_prime;
-
-    return a_400 * x * x * x * x +
-           a_300 * x * x * x +
-           a_200 * x * x +
-           a_210 * x * x * y +
-           a_201 * x * x * z +
-           a_100 * x +
-           a_110 * x * y +
-           a_101 * x * z +
-           a_020 * y * y +
-           a_010 * y +
-           a_011 * y * z +
-           a_002 * z * z +
-           a_001 * z +
-           a_000;
-  };
 
   auto t3 = std::chrono::high_resolution_clock::now();
   // Step 4. We want to find the optimal x' and z' value for each value of theta.
@@ -518,12 +468,8 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
 
   // Step 7
   auto t6 = std::chrono::high_resolution_clock::now();
-  Eigen::Matrix3d transform;
-  transform <<
-    0, 0, 1,
-    -1, 0, 0,
-    0, -1, 0;
-  frc::Rotation3d edn_to_nwu{transform};
+  constexpr Eigen::Matrix3d transform{{0, 0, 1}, {-1, 0, 0}, {0, -1, 0}};
+  constexpr frc::Rotation3d edn_to_nwu{transform};
   frc::Pose3d nwu_pose{pose.Translation().RotateBy(edn_to_nwu), 
                        -edn_to_nwu + pose.Rotation() + edn_to_nwu};
 
