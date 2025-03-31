@@ -221,12 +221,10 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   int N = params.imagePoints.cols();
   
   // Step 1
-  auto t0 = std::chrono::high_resolution_clock::now();
   const auto K_inverse = params.K.inverse().block(0, 0, 2, 3);
   Eigen::Matrix<double, 2, Eigen::Dynamic> normalized_image_points = K_inverse * params.imagePoints;
 
   // Step 2
-  auto t1 = std::chrono::high_resolution_clock::now();
   constexpr Eigen::Matrix<double, 4, 4> nwu_to_edn{
         {0, -1,  0,  0},
         {0,  0, -1,  0},
@@ -234,37 +232,7 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
         {0,  0,  0,  1}};
   const auto world_points_opencv = nwu_to_edn * params.worldPoints;
 
-  auto t2 = std::chrono::high_resolution_clock::now();
   // Step 3
-  // 
-  // The cost function has the form
-  // 
-  //   a_0 * x⁴ + a_1 * x³ + a_2 * x² + 
-  //   a_3 * x² * y + a_4 * x * y + a_5 * y² + a_6
-  //   a_6 * x² * z + a_7 * x * z + a_8 * z² +
-  //   a_9
-  // 
-  // where
-  // 
-  //   x = tau, y = x', z = z'
-  // 
-  // We explicitly solve for this polynomial.
-
-  // The cost function has the form
-  // 
-  // ∑ ∑ ∑ a_(i,j,k) * xⁱ * yʲ + 
-  // i j k
-
-  // The x residual has the form
-  // 
-  // (A + B + C + D + E) = (a_0 * x² + a_1 * x + a_2 * y + a_3 * z + a_4)^2
-  //
-  // Expanding gives
-  // 
-  // A² + B² + C² + D² + E² + 2(AB + AC + AD + AE + BC + BD + BE + CD + CE + DE) =
-  // a_0^2 * x^4 + a_1^2 * x^2 + a_2^2 * y^2 + a_3^2 * z^2 + z_4^2 + 2(a_0a_1x^3 + )
-
-
   // ok this looks unreadable but i swear it makes sense
   double a_400 = 0;
   double a_300 = 0;
@@ -333,14 +301,8 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
     a_002 += Ay_zp * Ay_zp;
     a_001 += 2 * Ay_zp * Cy_tau;
     a_000 += Cy_tau * Cy_tau;
-
-    // double residual_x = Ax_tau * tau * tau + Bx_tau * tau + Cx_tau - x_prime + u * z_prime;
-    // double residual_y = Ay_tau * tau * tau + By_tau * tau + Cy_tau + z_prime * v;
-
-    // total_cost += residual_x * residual_x + residual_y * residual_y;
   }
 
-  auto t3 = std::chrono::high_resolution_clock::now();
   // Step 4. We want to find the optimal x' and z' value for each value of theta.
   // 
   // Taking the derivative of the cost function c(x, y, z) and setting it zero gives
@@ -445,16 +407,12 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   // a_000
   b_0 += a_000;
   
-  auto t10 = std::chrono::high_resolution_clock::now();
   const Eigen::Matrix<double, 5, 1> coeffs{b_0, b_1, b_2, b_3, b_4};
-  auto t11 = std::chrono::high_resolution_clock::now();
 
   // Step 5
-  auto t4 = std::chrono::high_resolution_clock::now();
   double tau = minimize_quartic(coeffs);
 
   // Step 6
-  auto t5 = std::chrono::high_resolution_clock::now();
   double x_prime = A_y * tau * tau + B_y * tau + C_y;
   double z_prime = A_z * tau * tau + B_z * tau + C_z;
   double x = x_prime / (1 + tau * tau);
@@ -463,10 +421,7 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   frc::Pose3d pose{frc::Translation3d(units::meter_t{x}, 0_m, units::meter_t{z}), 
                    frc::Rotation3d(0_rad, units::radian_t{theta}, 0_rad)};
   
-  // fmt::println("Final x: {}, z: {}, theta: {}", x, z, theta);
-
   // Step 7
-  auto t6 = std::chrono::high_resolution_clock::now();
   constexpr Eigen::Matrix3d transform{{0, 0, 1}, {-1, 0, 0}, {0, -1, 0}};
   constexpr frc::Rotation3d edn_to_nwu{transform};
   const frc::Pose3d nwu_pose{pose.Translation().RotateBy(edn_to_nwu), 
@@ -474,17 +429,6 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
 
   const frc::Pose3d inv_pose{-nwu_pose.Translation().RotateBy(-nwu_pose.Rotation()),
                              -nwu_pose.Rotation()};
-
-  auto t7 = std::chrono::high_resolution_clock::now();
-
-  fmt::println("Step 1 time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t1-t0).count() / 1e6);
-  fmt::println("Step 2 time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t2-t1).count() / 1e6);
-  fmt::println("Step 3 time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t3-t2).count() / 1e6);
-  fmt::println("Step 4 time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t4-t3).count() / 1e6);
-  fmt::println("Step 5 time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t5-t4).count() / 1e6);
-  fmt::println("Step 6 time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t6-t5).count() / 1e6);
-  fmt::println("Step 7 time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t7-t6).count() / 1e6);
-  fmt::println("Fit quartic: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t11-t10).count() / 1e6);
 
   return inv_pose.ToPose2d();
 }
