@@ -85,7 +85,10 @@ Eigen::Matrix<double, 4, Eigen::Dynamic> getTestTags() {
 /// @param field2corners The locations of the corners of the tags in the field frame
 /// @return Observed pixel locations
 Eigen::Matrix<double, 2, Eigen::Dynamic>
-projectPoints(Eigen::Matrix<double, 3, 3> K,
+projectPoints(double f_x,
+              double f_y,
+              double c_x,
+              double c_y,
               Eigen::Matrix4d field2camera_wpi,
               Eigen::Matrix<double, 4, Eigen::Dynamic> field2corners) {
   // robot is ENU, cameras are SDE
@@ -101,6 +104,8 @@ projectPoints(Eigen::Matrix<double, 3, 3> K,
   auto camera2corners = field2camera.inverse() * field2corners; 
 
   // project the points. This is verbose but whatever
+  Eigen::Matrix<double, 3, 3> K;
+  K << f_x, 0, c_x, 0, f_y, c_y, 0, 0, 1;
   auto pointsUnnormalized =
       K * camera2corners.block(0, 0, 3, camera2corners.cols());
   auto u =
@@ -115,34 +120,37 @@ projectPoints(Eigen::Matrix<double, 3, 3> K,
 }
 
 TEST(PoseTest, Projection) {
-  Eigen::Matrix<double, 3, 3> K;
-  K << 100, 0., 0, 0., 100, 0, 0., 0., 1.;
-
-  cpnp::ProblemParams params(4, K);
+  cpnp::ProblemParams params(4);
 
   // params.K << 599.375, 0., 479.5, 0., 599.16666667, 359.5, 0., 0., 1.;
   // params.K << 100, 0., 0, 0., 100, 0, 0., 0., 1.;
 
+  params.f_x = 100;
+  params.f_y = 100;
+  params.c_x = 0;
+  params.c_y = 0;
+
   params.worldPoints = getTestTags();
 
   frc::Transform3d robot2camera {};
-  params.imagePoints = projectPoints(params.K, robot2camera.ToMatrix(), params.worldPoints);
+  params.imagePoints = projectPoints(params.f_x, params.f_y, params.c_x, params.c_y, robot2camera.ToMatrix(), params.worldPoints);
 
   std::cout << "world points:\n" << params.worldPoints << std::endl;
   std::cout << "image points:\n" << params.imagePoints << std::endl;
-  std::cout << "K:\n" << params.K << std::endl;
 }
 
 TEST(PoseTest, Naive) {
-  Eigen::Matrix<double, 3, 3> K;
-  K << 100, 0., 0, 0., 100, 0, 0., 0., 1.;
+  cpnp::ProblemParams params(4);
 
-  cpnp::ProblemParams params(4, K);
+  params.f_x = 100;
+  params.f_y = 100;
+  params.c_x = 0;
+  params.c_y = 0;
 
   params.worldPoints = getTestTags();
 
   frc::Transform3d robot2camera {frc::Pose3d{}, frc::Pose3d{frc::Translation3d{-1.3_m, 0.25_m, 0_m}, frc::Rotation3d{0_rad, 0_rad, -1.5_rad}}};
-  params.imagePoints = projectPoints(params.K, robot2camera.ToMatrix(), params.worldPoints);
+  params.imagePoints = projectPoints(params.f_x, params.f_y, params.c_x, params.c_y, robot2camera.ToMatrix(), params.worldPoints);
 
   auto t0 = std::chrono::high_resolution_clock::now();
   auto polynomial_ret = cpnp::solve_polynomial(params);

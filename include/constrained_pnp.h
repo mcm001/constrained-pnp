@@ -12,12 +12,11 @@ namespace cpnp {
         Eigen::Matrix<double, 4, Eigen::Dynamic> worldPoints;
         // Image points, 
         Eigen::Matrix<double, 2, Eigen::Dynamic> imagePoints;
-        Eigen::Matrix<double, 3, 3> K;
+        double f_x, f_y, c_x, c_y;
 
-        explicit ProblemParams(int nLandmarks, const Eigen::Matrix<double, 3, 3>& K)
+        explicit ProblemParams(int nLandmarks)
         : worldPoints(4, nLandmarks),
-          imagePoints(2, nLandmarks),
-          K(K)
+          imagePoints(2, nLandmarks)
         {}   
     };
 

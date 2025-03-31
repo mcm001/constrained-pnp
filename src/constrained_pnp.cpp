@@ -151,8 +151,11 @@ frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
       {-sinθ, 0, cosθ, robot_z},
   };
 
+  Eigen::Matrix<double, 3, 3> K;
+  K << params.f_x, 0, params.c_x, 0, params.f_y, params.c_y, 0, 0, 1;
+
   // TODO - can i just do this whole matrix at once, one col per observation?
-  auto predicted_image_point = params.K * (R_T * world_points_opencv);
+  auto predicted_image_point = K * (R_T * world_points_opencv);
 
   auto u_pred = sleipnir::CwiseReduce(predicted_image_point.Row(0), predicted_image_point.Row(2), std::divides<>{});
   auto v_pred = sleipnir::CwiseReduce(predicted_image_point.Row(1), predicted_image_point.Row(2), std::divides<>{});
@@ -216,18 +219,16 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   //   7. Undo the opencv transform and invert the transform.
   int N = params.imagePoints.cols();
 
-  std::cout << params.imagePoints << std::endl;
-  
   // Step 1
-  const auto K_inverse = params.K.inverse().block(0, 0, 2, 3);
-  Eigen::Matrix<double, 2, Eigen::Dynamic> normalized_image_points = K_inverse * params.imagePoints;
-  std::cout << normalized_image_points << std::endl;
-  double f_x = params.K(0, 0);
-  double f_y = params.K(1, 1);
-  double c_x = params.K(0, 2);
-  double c_y = params.K(1, 2);
+  // const auto K_inverse = params.K.inverse().block(0, 0, 2, 3);
+  // Eigen::Matrix<double, 2, Eigen::Dynamic> normalized_image_points = K_inverse * params.imagePoints;
+  // std::cout << normalized_image_points << std::endl;
+  double f_x = params.f_x;
+  double f_y = params.f_y;
+  double c_x = params.c_x;
+  double c_y = params.c_y;
 
-  fmt::println("f_x: {}, f_y: {}, c_x: {}, c_y: {}", f_x, f_y, c_x, c_y);
+  // fmt::println("f_x: {}, f_y: {}, c_x: {}, c_y: {}", f_x, f_y, c_x, c_y);
 
   // Step 2
   // constexpr Eigen::Matrix<double, 4, 4> nwu_to_edn{
@@ -256,12 +257,12 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
 
   for (int i = 0; i < N; i++) {
     // Convert image points to normalized points
-    // double p_x = params.imagePoints(0, i);
-    // double p_y = params.imagePoints(1, i);
-    // double u = (p_x - c_x) / f_x;
-    // double v = (p_y - c_y) / f_y;
-    double u = normalized_image_points(0, i);
-    double v = normalized_image_points(1, i);
+    double p_x = params.imagePoints(0, i);
+    double p_y = params.imagePoints(1, i);
+    double u = (p_x - c_x) / f_x;
+    double v = (p_y - c_y) / f_y;
+    // double u = normalized_image_points(0, i);
+    // double v = normalized_image_points(1, i);
     // Note we do the opencv coordinate transform here to avoid an extra matrix multiply 
     // at the start.
     double X = -params.worldPoints(1, i);
@@ -393,10 +394,16 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   double nwu_y = -x;
   double nwu_theta = -theta;
 
+  // const frc::Pose3d pose{frc::Translation3d(units::meter_t{nwu_x}, units::meter_t{nwu_y}, 0_m), 
+  //                        frc::Rotation3d(0_rad, 0_rad, units::radian_t{nwu_theta})};
+  // const frc::Pose3d inv_pose{-pose.Translation().RotateBy(-pose.Rotation()),
+  //                          -pose.Rotation()};
+  // return inv_pose.ToPose2d();
+
   double ncos = cos(-nwu_theta);
   double nsin = sin(-nwu_theta);
 
-  return frc::Pose2d{units::meter_t{-(ncos * nwu_x + nsin * nwu_y)}, 
-                     units::meter_t{-(-nsin * nwu_x + ncos * nwu_y)},
+  return frc::Pose2d{units::meter_t{-(ncos * nwu_x - nsin * nwu_y)}, 
+                     units::meter_t{-(nsin * nwu_x + ncos * nwu_y)},
                      units::radian_t{-theta}};
 }
