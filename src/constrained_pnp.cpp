@@ -232,7 +232,7 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
         {0,  0, -1,  0},
         {1,  0,  0,  0},
         {0,  0,  0,  1}};
-  auto world_points_opencv = nwu_to_edn * params.worldPoints;
+  const auto world_points_opencv = nwu_to_edn * params.worldPoints;
 
   auto t2 = std::chrono::high_resolution_clock::now();
   // Step 3
@@ -446,8 +446,7 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   b_0 += a_000;
   
   auto t10 = std::chrono::high_resolution_clock::now();
-  Eigen::Matrix<double, 5, 1> coeffs;
-  coeffs << b_0, b_1, b_2, b_3, b_4;
+  const Eigen::Matrix<double, 5, 1> coeffs{b_0, b_1, b_2, b_3, b_4};
   auto t11 = std::chrono::high_resolution_clock::now();
 
   // Step 5
@@ -470,11 +469,11 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   auto t6 = std::chrono::high_resolution_clock::now();
   constexpr Eigen::Matrix3d transform{{0, 0, 1}, {-1, 0, 0}, {0, -1, 0}};
   constexpr frc::Rotation3d edn_to_nwu{transform};
-  frc::Pose3d nwu_pose{pose.Translation().RotateBy(edn_to_nwu), 
-                       -edn_to_nwu + pose.Rotation() + edn_to_nwu};
+  const frc::Pose3d nwu_pose{pose.Translation().RotateBy(edn_to_nwu), 
+                            -edn_to_nwu + pose.Rotation() + edn_to_nwu};
 
-  frc::Pose3d inv_pose{-nwu_pose.Translation().RotateBy(-nwu_pose.Rotation()),
-                       -nwu_pose.Rotation()};
+  const frc::Pose3d inv_pose{-nwu_pose.Translation().RotateBy(-nwu_pose.Rotation()),
+                             -nwu_pose.Rotation()};
 
   auto t7 = std::chrono::high_resolution_clock::now();
 
