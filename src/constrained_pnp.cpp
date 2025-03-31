@@ -362,25 +362,27 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   double x = x_prime / (1 + tau * tau);
   double z = z_prime / (1 + tau * tau);
   double theta = 2 * atan(tau);
-  const frc::Pose3d pose{frc::Translation3d(units::meter_t{x}, 0_m, units::meter_t{z}), 
-                         frc::Rotation3d(0_rad, units::radian_t{theta}, 0_rad)};
+  // const frc::Pose3d pose{frc::Translation3d(units::meter_t{x}, 0_m, units::meter_t{z}), 
+  //                        frc::Rotation3d(0_rad, units::radian_t{theta}, 0_rad)};
   
   // Step 7
-  constexpr Eigen::Matrix3d transform{{0, 0, 1}, {-1, 0, 0}, {0, -1, 0}};
-  constexpr frc::Rotation3d edn_to_nwu{transform};
-  const frc::Pose3d nwu_pose{pose.Translation().RotateBy(edn_to_nwu), 
-                            -edn_to_nwu + pose.Rotation() + edn_to_nwu};
+  // constexpr Eigen::Matrix3d transform{{0, 0, 1}, {-1, 0, 0}, {0, -1, 0}};
+  // constexpr frc::Rotation3d edn_to_nwu{transform};
+  // const frc::Pose3d nwu_pose{pose.Translation().RotateBy(edn_to_nwu), 
+  //                           -edn_to_nwu + pose.Rotation() + edn_to_nwu};
 
-  const frc::Pose3d inv_pose{-nwu_pose.Translation().RotateBy(-nwu_pose.Rotation()),
-                             -nwu_pose.Rotation()};
+  // const frc::Pose3d inv_pose{-nwu_pose.Translation().RotateBy(-nwu_pose.Rotation()),
+  //                            -nwu_pose.Rotation()};
 
   // Manually writing out the math instead of using wpilib geometry objects.
-  // double nwu_x = z;
-  // double nwu_y = -x;
-  // double nwu_theta = theta;
+  double nwu_x = z;
+  double nwu_y = -x;
+  double nwu_theta = -theta;
 
-  // double ncos = cos(-nwu_theta);
-  // double nsin = cos(-nwu_theta);
+  double ncos = cos(-nwu_theta);
+  double nsin = sin(-nwu_theta);
 
-  return inv_pose.ToPose2d();
+  return frc::Pose2d{units::meter_t{-(ncos * nwu_x + nsin * nwu_y)}, 
+                     units::meter_t{-(-nsin * nwu_x + ncos * nwu_y)},
+                     units::radian_t{-theta}};
 }
