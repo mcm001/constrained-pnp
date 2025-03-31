@@ -146,7 +146,12 @@ TEST(PoseTest, Naive) {
 
   fmt::println("Polynomial solve time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t1-t0).count() / 1e6);
   
+  auto t2 = std::chrono::high_resolution_clock::now();
   auto naive_ret = cpnp::solve_naive(params);
+  auto t3 = std::chrono::high_resolution_clock::now();
+
+  fmt::println("Naive solve time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t3-t2).count() / 1e6);
+
   fmt::println("Polynomial method says robot is at:\n{}", polynomial_ret.ToMatrix());
   fmt::println("Naive method says robot is at:\n{}", naive_ret.ToMatrix());
 }

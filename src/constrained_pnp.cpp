@@ -137,8 +137,8 @@ frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
   auto robot_z = problem.DecisionVariable();
   auto robot_θ = problem.DecisionVariable();
 
-  robot_x.SetValue(0);
-  robot_z.SetValue(0);
+  robot_x.SetValue(-1.5);
+  robot_z.SetValue(-1);
   robot_θ.SetValue(0);
 
   // Generate r_t
@@ -172,8 +172,6 @@ frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
   auto status = problem.Solve({.diagnostics=false});
 
   fmt::println("Final cost: {}", cost.Value());
-
-  // fmt::println("Final x: {}, z: {}, theta: {}", robot_x.Value(), robot_z.Value(), robot_θ.Value());
 
   frc::Pose3d pose{frc::Translation3d{units::meter_t{robot_x.Value()}, units::meter_t{0}, units::meter_t(robot_z.Value())}, 
                    frc::Rotation3d{units::radian_t{0}, units::radian_t{robot_θ.Value()}, units::radian_t{0}}};
@@ -335,77 +333,39 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   double C_z = (a_011 * a_010 - 2 * a_020 * a_001) / det;
 
   // Substituting back in gives
-  double b_4 = 0;
-  double b_3 = 0;
-  double b_2 = 0;
-  double b_1 = 0;
-  double b_0 = 0;
-
-  // a_400
-  b_4 += a_400;
-
-  // a_300
-  b_3 += a_300;
-
-  // a_200
-  b_2 += a_200;
-
-  // a_210
-  b_4 += a_210 * A_y;
-  b_3 += a_210 * B_y;
-  b_2 += a_210 * C_y;
-
-  // a_201
-  b_4 += a_201 * A_z;
-  b_3 += a_201 * B_z;
-  b_2 += a_201 * C_z;
-
-  // a_100
-  b_1 += a_100;
-
-  // a_110
-  b_3 += a_110 * A_y;
-  b_2 += a_110 * B_y;
-  b_1 += a_110 * C_y;
-
-  // a_101
-  b_3 += a_101 * A_z;
-  b_2 += a_101 * B_z;
-  b_1 += a_101 * C_z;
-
-  // a_020
-  b_4 += a_020 * (A_y * A_y);
-  b_3 += a_020 * (A_y * B_y + B_y * A_y);
-  b_2 += a_020 * (B_y * B_y + A_y * C_y + C_y * A_y);
-  b_1 += a_020 * (B_y * C_y + C_y * B_y);
-  b_0 += a_020 * (C_y * C_y);
-
-  // a_010
-  b_2 += a_010 * A_y;
-  b_1 += a_010 * B_y;
-  b_0 += a_010 * C_y;
-
-  // a_011
-  b_4 += a_011 * (A_y * A_z);
-  b_3 += a_011 * (A_y * B_z + B_y * A_z);
-  b_2 += a_011 * (A_y * C_z + B_y * B_z + C_y * A_z);
-  b_1 += a_011 * (B_y * C_z + C_y * B_z);
-  b_0 += a_011 * (C_y * C_z);
-
-  // a_002
-  b_4 += a_002 * (A_z * A_z);
-  b_3 += a_002 * (A_z * B_z + B_z * A_z);
-  b_2 += a_002 * (B_z * B_z + A_z * C_z + C_z * A_z);
-  b_1 += a_002 * (B_z * C_z + C_z * B_z);
-  b_0 += a_002 * (C_z * C_z);
-
-  // a_001
-  b_2 += a_001 * A_z;
-  b_1 += a_001 * B_z;
-  b_0 += a_001 * C_z;
-
-  // a_000
-  b_0 += a_000;
+  double b_4 = a_400 + a_210 * A_y + a_201 * A_z + a_020 * (A_y * A_y) + a_011 * (A_y * A_z) + a_002 * (A_z * A_z);
+  double b_3 = a_300 + 
+               a_210 * B_y + 
+               a_201 * B_z + 
+               a_110 * A_y + 
+               a_101 * A_z + 
+               a_011 * (A_y * B_z + B_y * A_z) + 
+               a_002 * (A_z * B_z + B_z * A_z) +
+               a_020 * (A_y * B_y + B_y * A_y);
+  double b_2 = a_200 +
+               a_210 * C_y +
+               a_201 * C_z +
+               a_110 * B_y +
+               a_101 * B_z +
+               a_020 * (B_y * B_y + A_y * C_y + C_y * A_y) +
+               a_010 * A_y +
+               a_011 * (A_y * C_z + B_y * B_z + C_y * A_z) +
+               a_002 * (B_z * B_z + A_z * C_z + C_z * A_z) +
+               a_001 * A_z;
+  double b_1 = a_100 +
+               a_020 * (B_y * C_y + C_y * B_y) +
+               a_110 * C_y +
+               a_101 * C_z +
+               a_010 * B_y +
+               a_011 * (B_y * C_z + C_y * B_z) +
+               a_002 * (B_z * C_z + C_z * B_z) +
+               a_001 * B_z;
+  double b_0 = a_020 * (C_y * C_y) +
+               a_010 * C_y +
+               a_011 * (C_y * C_z) +
+               a_002 * (C_z * C_z) +
+               a_001 * C_z +
+               a_000;
   
   const Eigen::Matrix<double, 5, 1> coeffs{b_0, b_1, b_2, b_3, b_4};
 
@@ -418,8 +378,8 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   double x = x_prime / (1 + tau * tau);
   double z = z_prime / (1 + tau * tau);
   double theta = 2 * atan(tau);
-  frc::Pose3d pose{frc::Translation3d(units::meter_t{x}, 0_m, units::meter_t{z}), 
-                   frc::Rotation3d(0_rad, units::radian_t{theta}, 0_rad)};
+  const frc::Pose3d pose{frc::Translation3d(units::meter_t{x}, 0_m, units::meter_t{z}), 
+                         frc::Rotation3d(0_rad, units::radian_t{theta}, 0_rad)};
   
   // Step 7
   constexpr Eigen::Matrix3d transform{{0, 0, 1}, {-1, 0, 0}, {0, -1, 0}};
