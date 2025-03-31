@@ -214,8 +214,6 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   //      (fancy quadratic formula).
   //   6. Undo the change of variables and solve for theta, x, and z in terms of tau.
   //   7. Undo the opencv transform and invert the transform.
-  assert(params.imagePoints.cols() == params.worldPoints.cols());
-
   int N = params.imagePoints.cols();
   
   // Step 1
@@ -255,7 +253,7 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
     double Z = world_points_opencv(2, i);
 
     double Ax_tau = -Z * u + X;
-    double Bx_tau = -2 * X * u - 2 * Z;
+    double Bx_tau = -2 * (X * u + Z);
     double Cx_tau = Z * u - X;
 
     double Ay_tau = -Z * v - Y;
@@ -269,36 +267,20 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
     double Ay_zp = v;
 
     // Add the components from the x residual
-    a_400 += Ax_tau * Ax_tau;
-    a_300 += 2 * Ax_tau * Bx_tau;
-    a_200 += 2 * Ax_tau * Cx_tau + Bx_tau * Bx_tau;
-    a_210 += 2 * Ax_tau * Ax_xp;
-    a_201 += 2 * Ax_tau * Ax_zp;
-    a_100 += 2 * Bx_tau * Cx_tau;
-    a_110 += 2 * Bx_tau * Ax_xp;
-    a_101 += 2 * Bx_tau * Ax_zp;
-    a_020 += Ax_xp * Ax_xp;
-    a_010 += 2 * Ax_xp * Cx_tau;
-    a_011 += 2 * Ax_xp * Ax_zp;
-    a_002 += Ax_zp * Ax_zp;
-    a_001 += 2 * Ax_zp * Cx_tau;
-    a_000 += Cx_tau * Cx_tau;
-
-    // Add the components from the y residual
-    a_400 += Ay_tau * Ay_tau;
-    a_300 += 2 * Ay_tau * By_tau;
-    a_200 += 2 * Ay_tau * Cy_tau + By_tau * By_tau;
-    a_210 += 2 * Ay_tau * Ay_xp;
-    a_201 += 2 * Ay_tau * Ay_zp;
-    a_100 += 2 * By_tau * Cy_tau;
-    a_110 += 2 * By_tau * Ay_xp;
-    a_101 += 2 * By_tau * Ay_zp;
-    a_020 += Ay_xp * Ay_xp;
-    a_010 += 2 * Ay_xp * Cy_tau;
-    a_011 += 2 * Ay_xp * Ay_zp;
-    a_002 += Ay_zp * Ay_zp;
-    a_001 += 2 * Ay_zp * Cy_tau;
-    a_000 += Cy_tau * Cy_tau;
+    a_400 += Ax_tau * Ax_tau + Ay_tau * Ay_tau;
+    a_300 += 2 * (Ax_tau * Bx_tau + Ay_tau * By_tau);
+    a_200 += 2 * (Ax_tau * Cx_tau + Bx_tau * Bx_tau + Ay_tau * Cy_tau + By_tau * By_tau);
+    a_210 += 2 * (Ax_tau * Ax_xp + Ay_tau * Ay_xp);
+    a_201 += 2 * (Ax_tau * Ax_zp + Ay_tau * Ay_zp);
+    a_100 += 2 * (Bx_tau * Cx_tau + By_tau * Cy_tau);
+    a_110 += 2 * (Bx_tau * Ax_xp + By_tau * Ay_xp);
+    a_101 += 2 * (Bx_tau * Ax_zp + By_tau * Ay_zp);
+    a_020 += Ax_xp * Ax_xp + Ay_xp * Ay_xp;
+    a_010 += 2 * (Ax_xp * Cx_tau + Ay_xp * Cy_tau);
+    a_011 += 2 * (Ax_xp * Ax_zp + Ay_xp * Ay_zp);
+    a_002 += Ax_zp * Ax_zp + Ay_zp * Ay_zp;
+    a_001 += 2 * (Ax_zp * Cx_tau + Ay_zp * Cy_tau);
+    a_000 += Cx_tau * Cx_tau + Cy_tau * Cy_tau;
   }
 
   // Step 4. We want to find the optimal x' and z' value for each value of theta.
