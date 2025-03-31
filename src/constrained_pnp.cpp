@@ -6,113 +6,60 @@
 #include <sleipnir/autodiff/VariableBlock.hpp>
 #include <iostream>
 
-// Returns the values of x which are roots of 
-// 
-//   y = a_3 * x^3 + a_2 * x^2 + a_1 * x + a_0. 
-std::array<std::optional<double>, 3> solve_cubic_roots(const Eigen::Matrix<double, 4, 1>& coeffs) {
-  // // TODO: make sure this actually works, i was done with the rest and wanted to test so
-  // // this is chatgpt
-  std::array<std::optional<double>, 3> roots = { std::nullopt, std::nullopt, std::nullopt };
-  const double tol = 1e-8;
-  
-  double a3 = coeffs(3);
-  double a2 = coeffs(2);
-  double a1 = coeffs(1);
-  double a0 = coeffs(0);
-  
-  // Handle degenerate (quadratic or linear) cases.
-  if (std::fabs(a3) < tol) {
-      // Solve a2*x^2 + a1*x + a0 = 0.
-      if (std::fabs(a2) < tol) {
-          // Linear: a1*x + a0 = 0.
-          if (std::fabs(a1) >= tol) {
-              roots.at(0) = -a0 / a1;
-          }
-          return roots;
-      } else {
-          double discriminant = a1 * a1 - 4 * a2 * a0;
-          if (discriminant >= 0) {
-              double sqrt_disc = std::sqrt(discriminant);
-              roots.at(0) = (-a1 + sqrt_disc) / (2 * a2);
-              roots.at(1) = (-a1 - sqrt_disc) / (2 * a2);
-          }
-          return roots;
-      }
-  }
-  
-  // Normalize the cubic: x^3 + (a2/a3)*x^2 + (a1/a3)*x + (a0/a3) = 0.
-  double b = a2 / a3;
-  double c = a1 / a3;
-  double d = a0 / a3;
-  
-  // Remove the quadratic term with the substitution: x = t - b/3.
-  double offset = b / 3.0;
-  double p = c - (b * b) / 3.0;
-  double q = 2 * (b * b * b) / 27.0 - (b * c) / 3.0 + d;
-  
-  // Compute the discriminant for the depressed cubic: t^3 + p*t + q = 0.
-  double discriminant = (q * q) / 4.0 + (p * p * p) / 27.0;
-  
-  if (discriminant > tol) {
-      // One real root.
-      double sqrt_disc = std::sqrt(discriminant);
-      double u = std::cbrt(-q / 2.0 + sqrt_disc);
-      double v = std::cbrt(-q / 2.0 - sqrt_disc);
-      double t = u + v;
-      roots.at(0) = t - offset;
-  } else if (std::fabs(discriminant) <= tol) {
-      // All roots real; at least two equal.
-      double u = std::cbrt(-q / 2.0);
-      roots.at(0) = 2 * u - offset;
-      roots.at(1) = -u - offset;
-  } else {
-      // Three distinct real roots.
-      double r = std::sqrt(-p * p * p / 27.0);
-      double cos_phi = -q / (2 * r);
-      // Clamp cos_phi to [-1, 1] to avoid numerical issues.
-      if (cos_phi < -1) cos_phi = -1;
-      if (cos_phi > 1)  cos_phi = 1;
-      double phi = std::acos(cos_phi);
-      double t1 = 2 * std::sqrt(-p / 3.0) * std::cos(phi / 3.0);
-      double t2 = 2 * std::sqrt(-p / 3.0) * std::cos((phi + 2 * M_PI) / 3.0);
-      double t3 = 2 * std::sqrt(-p / 3.0) * std::cos((phi + 4 * M_PI) / 3.0);
-      roots.at(0) = t1 - offset;
-      roots.at(1) = t2 - offset;
-      roots.at(2) = t3 - offset;
-  }
-  
-  return roots;
-}
-
 // Returns the value of x which minimizes 
 // 
 //   y = a_4 * x^4 + a_3 * x^3 + a_2 * x^2 + a_1 * x + a_0. 
 // 
 // Note we assume the polynomial has a finite value for the minimum.
-double minimize_quartic(Eigen::Matrix<double, 5, 1> coeffs) {
-  Eigen::Matrix<double, 4, 1> deriv;
-  deriv(0) = coeffs(1);  // coefficient for x^3
-  deriv(1) = 2 * coeffs(2);  // coefficient for x^2
-  deriv(2) = 3 * coeffs(3);  // coefficient for x
-  deriv(3) = 4 * coeffs(4);      // constant term
-  auto critical_points = solve_cubic_roots(deriv);
-  double min_x = 0;
-  double min_y = INFINITY;
-  for (const auto& opt_x : critical_points) {
-    if (opt_x.has_value()) {
-      double x = opt_x.value();
-      double y = coeffs(4) * std::pow(x, 4) + 
-                 coeffs(3) * std::pow(x, 3) + 
-                 coeffs(2) * std::pow(x, 2) + 
-                 coeffs(1) * x + 
-                 coeffs(0);
-      if (y < min_y) {
-        min_x = x;
-        min_y = y;
-      }
+double minimize_quartic(double a0, double a1, double a2, double a3, double a4) {
+  double a = 4 * a4;
+  double b = 3 * a3;
+  double c = 2 * a2;
+  double d = a1;
+
+  double p = (3 * a * c - b * b) / (3 * a * a);
+  double q = (2 * b * b * b - 9 * a * b * c + 27 * a * a * d) / (27 * a * a * a);
+
+  double temp = std::sqrt(q * q / 4 + p * p * p / 27);
+  double u1 = -q * 0.5 + temp;
+  double u2 = -q * 0.5 - temp;
+
+  double root1 = std::cbrt(u1) + std::cbrt(u2);
+  double min_x = root1 - b / (3 * a);
+  double min_y = a0 + a1 * min_x + a2 * min_x * min_x + a3 * min_x * min_x * min_x + a4 * min_x * min_x * min_x * min_x;
+
+  // Get other two roots
+  double A = 1;
+  double B = root1;
+  double C = p + root1 * root1;
+
+  double discriminant = B * B - 4 * A * C;
+
+  if (discriminant >= 0) {
+    double sqrt_disc = std::sqrt(discriminant);
+    double root2 = (-B + sqrt_disc) / (2 * A);
+    double root3 = (-B - sqrt_disc) / (2 * A);
+
+    double x2 = root2 - b / (3 * a);
+    double x3 = root3 - b / (3 * a);
+
+    double y2 = a0 + a1 * x2 + a2 * x2 * x2 + a3 * x2 * x2 * x2 + a4 * x2 * x2 * x2 * x2;
+    double y3 = a0 + a1 * x3 + a2 * x3 * x3 + a3 * x3 * x3 * x3 + a4 * x3 * x3 * x3 * x3;
+
+    if (y2 < min_y) {
+      min_y = y2;
+      min_x = x2;
     }
+
+    if (y3 < min_y) {
+      return x3;
+    }
+    
+    return min_x;
+
+  } else {
+    return min_x;
   }
-  return min_x;
 }
 
 frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
@@ -217,13 +164,14 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   //   5. Undo the opencv transform and invert the transform.
   int N = params.imagePoints.cols();
 
-  double f_x = params.f_x;
-  double f_y = params.f_y;
+  double inv_f_x = 1 / params.f_x;
+  double inv_f_y = 1 / params.f_y;
   double c_x = params.c_x;
   double c_y = params.c_y;
 
   // Step 1
   // ok this looks unreadable but i swear it makes sense
+  // auto t0 = std::chrono::high_resolution_clock::now();
   double a_400 = 0;
   double a_300 = 0;
   double a_200 = 0;
@@ -243,9 +191,9 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
     // Convert image points to normalized points
     double p_x = params.imagePoints(0, i);
     double p_y = params.imagePoints(1, i);
-    double u = (p_x - c_x) / f_x;
-    double v = (p_y - c_y) / f_y;
-    
+    double u = (p_x - c_x) * inv_f_x;
+    double v = (p_y - c_y) * inv_f_y;
+
     // We do the opencv coordinate transform here to avoid an extra matrix multiply.
     double X = -params.worldPoints(1, i);
     double Y = -params.worldPoints(2, i);
@@ -281,8 +229,10 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
     a_001 += 2 * (Ax_zp * Cx_tau + Ay_zp * Cy_tau);
     a_000 += Cx_tau * Cx_tau + Cy_tau * Cy_tau;
   }
+  // auto t1 = std::chrono::high_resolution_clock::now();
 
-  // Step 4. We want to find the optimal x' and z' value for each value of theta.
+
+  // Step 2. We want to find the optimal x' and z' value for each value of theta.
   // 
   // Taking the derivative of the cost function c(x, y, z) and setting it zero gives
   // 
@@ -303,15 +253,15 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   // 
   //   y = A_y * x^2 + B_y * x + C_y
   //   z = A_z * x^2 + B_z * x + C_z
-  double det = 4 * a_020 * a_002 - a_011 * a_011;
+  double inv_det = 1 / (4 * a_020 * a_002 - a_011 * a_011);
 
-  double A_y = (-2 * a_002 * a_210 + a_011 * a_201) / det;
-  double B_y = (-2 * a_002 * a_110 + a_011 * a_101) / det;
-  double C_y = (-2 * a_002 * a_010 + a_011 * a_001) / det;
+  double A_y = (-2 * a_002 * a_210 + a_011 * a_201) * inv_det;
+  double B_y = (-2 * a_002 * a_110 + a_011 * a_101) * inv_det;
+  double C_y = (-2 * a_002 * a_010 + a_011 * a_001) * inv_det;
 
-  double A_z = (a_011 * a_210 - 2 * a_020 * a_201) / det;
-  double B_z = (a_011 * a_110 - 2 * a_020 * a_101) / det;
-  double C_z = (a_011 * a_010 - 2 * a_020 * a_001) / det;
+  double A_z = (a_011 * a_210 - 2 * a_020 * a_201) * inv_det;
+  double B_z = (a_011 * a_110 - 2 * a_020 * a_101) * inv_det;
+  double C_z = (a_011 * a_010 - 2 * a_020 * a_001) * inv_det;
 
   // Substituting back in gives
   double b_4 = a_400 + a_210 * A_y + a_201 * A_z + a_020 * (A_y * A_y) + a_011 * (A_y * A_z) + a_002 * (A_z * A_z);
@@ -348,10 +298,12 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
                a_001 * C_z +
                a_000;
   
-  const Eigen::Matrix<double, 5, 1> coeffs{b_0, b_1, b_2, b_3, b_4};
+  // auto t2 = std::chrono::high_resolution_clock::now();
 
   // Step 5
-  double tau = minimize_quartic(coeffs);
+  double tau = minimize_quartic(b_0, b_1, b_2, b_3, b_4);
+
+  // auto t3 = std::chrono::high_resolution_clock::now();
 
   // Step 6
   double x_prime = A_y * tau * tau + B_y * tau + C_y;
@@ -360,6 +312,8 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   double z = z_prime / (1 + tau * tau);
   double theta = 2 * atan(tau);
 
+  // auto t4 = std::chrono::high_resolution_clock::now();
+
   // Manually writing out the math instead of using wpilib geometry objects.
   double nwu_x = z;
   double nwu_y = -x;
@@ -367,6 +321,14 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
 
   double ncos = cos(-nwu_theta);
   double nsin = sin(-nwu_theta);
+
+  // auto t6 = std::chrono::high_resolution_clock::now();
+
+  // fmt::println("Time 1: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count() / 1e6);
+  // fmt::println("Time 2: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count() / 1e6);
+  // fmt::println("Time 3: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t3 - t2).count() / 1e6);
+  // fmt::println("Time 4: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t4 - t3).count() / 1e6);
+
 
   return frc::Pose2d{units::meter_t{-(ncos * nwu_x - nsin * nwu_y)}, 
                      units::meter_t{-(nsin * nwu_x + ncos * nwu_y)},
