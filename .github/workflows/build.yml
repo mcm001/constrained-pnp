@@ -1,0 +1,78 @@
+name: CMake
+
+on: [pull_request, push]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            name: Linux
+            container: wpilib/roborio-cross-ubuntu:2025-22.04
+            flags: "--preset with-java -DCMAKE_BUILD_TYPE=Debug"
+          - os: macOS-14
+            name: macOS
+            container: ""
+            env: "PATH=\"/opt/homebrew/opt/protobuf@3/bin:$PATH\""
+            flags: "--preset default -DCMAKE_BUILD_TYPE=Debug -DCMAKE_LIBRARY_PATH=/opt/homebrew/opt/protobuf@3/lib -DProtobuf_INCLUDE_DIR=/opt/homebrew/opt/protobuf@3/include -DProtobuf_PROTOC_EXECUTABLE=/opt/homebrew/opt/protobuf@3/bin/protoc"
+          - os: windows-2022
+            name: Windows
+            container: ""
+            flags: '--preset default -DCMAKE_BUILD_TYPE=Debug -DUSE_SYSTEM_FMTLIB=ON -DUSE_SYSTEM_LIBUV=ON -DUSE_SYSTEM_EIGEN=OFF -DCMAKE_TOOLCHAIN_FILE="$Env:RUNNER_WORKSPACE/vcpkg/scripts/buildsystems/vcpkg.cmake" -DVCPKG_INSTALL_OPTIONS=--clean-after-build -DVCPKG_TARGET_TRIPLET=x64-windows-debug -DVCPKG_HOST_TRIPLET=x64-windows-debug'
+
+    name: "Build - ${{ matrix.name }}"
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    steps:
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libopencv-dev libopencv4.5-java libprotobuf-dev protobuf-compiler ninja-build
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install opencv protobuf@3 ninja
+
+      - uses: ilammy/msvc-dev-cmd@v1.13.0
+        if: runner.os == 'Windows'
+
+      - name: Install CMake (Windows only)
+        if: runner.os == 'Windows'
+        uses: lukka/get-cmake@v3.29.3
+
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@v0.0.5
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+          fetch-depth: 0
+
+      - name: Run vcpkg (Windows only)
+        if: runner.os == 'Windows'
+        uses: lukka/run-vcpkg@v11.5
+        with:
+          vcpkgDirectory: ${{ runner.workspace }}/vcpkg
+          vcpkgGitCommitId: 37c3e63a1306562f7f59c4c3c8892ddd50fdf992 # HEAD on 2024-02-24
+
+      - name: configure
+        run: cmake ${{ matrix.flags }}
+
+      - name: build
+        run: cmake --build build-cmake --parallel $(nproc)
+
+      - name: test
+        if: runner.os != 'Windows'
+        working-directory: build-cmake
+        run: ctest --output-on-failure
+
+      - name: test (windows)
+        if: runner.os == 'Windows'
+        working-directory: build-cmake
+        # UnitTest_test segfaults on exit occasionally
+        run: ctest --output-on-failure -E 'UnitTest'
