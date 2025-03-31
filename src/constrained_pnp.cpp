@@ -248,6 +248,8 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   for (int i = 0; i < N; i++) {
     double u = normalized_image_points(0, i);
     double v = normalized_image_points(1, i);
+    // Note we do the opencv coordinate transform here to avoid an extra matrix multiply 
+    // at the start.
     double X = -params.worldPoints(1, i);
     double Y = -params.worldPoints(2, i);
     double Z = params.worldPoints(0, i);
@@ -371,6 +373,14 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
 
   const frc::Pose3d inv_pose{-nwu_pose.Translation().RotateBy(-nwu_pose.Rotation()),
                              -nwu_pose.Rotation()};
+
+  // Manually writing out the math instead of using wpilib geometry objects.
+  // double nwu_x = z;
+  // double nwu_y = -x;
+  // double nwu_theta = theta;
+
+  // double ncos = cos(-nwu_theta);
+  // double nsin = cos(-nwu_theta);
 
   return inv_pose.ToPose2d();
 }
