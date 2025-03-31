@@ -115,10 +115,13 @@ projectPoints(Eigen::Matrix<double, 3, 3> K,
 }
 
 TEST(PoseTest, Projection) {
-  cpnp::ProblemParams params(4);
+  Eigen::Matrix<double, 3, 3> K;
+  K << 100, 0., 0, 0., 100, 0, 0., 0., 1.;
+
+  cpnp::ProblemParams params(4, K);
 
   // params.K << 599.375, 0., 479.5, 0., 599.16666667, 359.5, 0., 0., 1.;
-  params.K << 100, 0., 0, 0., 100, 0, 0., 0., 1.;
+  // params.K << 100, 0., 0, 0., 100, 0, 0., 0., 1.;
 
   params.worldPoints = getTestTags();
 
@@ -131,9 +134,10 @@ TEST(PoseTest, Projection) {
 }
 
 TEST(PoseTest, Naive) {
-  cpnp::ProblemParams params(4);
+  Eigen::Matrix<double, 3, 3> K;
+  K << 100, 0., 0, 0., 100, 0, 0., 0., 1.;
 
-  params.K << 100, 0., 0, 0., 100, 0, 0., 0., 1.;
+  cpnp::ProblemParams params(4, K);
 
   params.worldPoints = getTestTags();
 

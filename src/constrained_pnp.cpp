@@ -271,7 +271,7 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
     // Add the components from the x residual
     a_400 += Ax_tau * Ax_tau + Ay_tau * Ay_tau;
     a_300 += 2 * (Ax_tau * Bx_tau + Ay_tau * By_tau);
-    a_200 += 2 * (Ax_tau * Cx_tau + Bx_tau * Bx_tau + Ay_tau * Cy_tau + By_tau * By_tau);
+    a_200 += 2 * (Ax_tau * Cx_tau + Ay_tau * Cy_tau) + Bx_tau * Bx_tau + By_tau * By_tau;
     a_210 += 2 * (Ax_tau * Ax_xp + Ay_tau * Ay_xp);
     a_201 += 2 * (Ax_tau * Ax_zp + Ay_tau * Ay_zp);
     a_100 += 2 * (Bx_tau * Cx_tau + By_tau * Cy_tau);

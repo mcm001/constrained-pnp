@@ -15,8 +15,12 @@ namespace cpnp {
         Eigen::Matrix<double, 3, 3> K;
         Eigen::Matrix<double, 3, 3> K_inverse;
 
-        explicit ProblemParams(int nLandmarks) : worldPoints(4, nLandmarks), imagePoints(2, nLandmarks), K_inverse(K.inverse()) {}
-    };
+        explicit ProblemParams(int nLandmarks, const Eigen::Matrix<double, 3, 3>& K)
+        : worldPoints(4, nLandmarks),
+          imagePoints(2, nLandmarks),
+          K(K),
+          K_inverse(K.inverse())
+    {}    };
 
     frc::Pose2d solve_naive(const ProblemParams& problem);
 
