@@ -154,9 +154,9 @@ frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
   auto robot_z = problem.DecisionVariable();
   auto robot_θ = problem.DecisionVariable();
 
-  robot_x.SetValue(4);
-  robot_z.SetValue(-1);
-  robot_θ.SetValue(0);
+  robot_x.SetValue(1);
+  robot_z.SetValue(1);
+  robot_θ.SetValue(1);
 
   // Generate r_t
   // rotation about +Y plus pose
@@ -260,26 +260,24 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
 
   // Step 3
   auto cost = [N, normalized_image_points, world_points_opencv](double x_prime, double z_prime, double tau) -> double {
-    // printf("(x': %f), (y': %f), (tau: %f)\n", x_prime, z_prime, tau);
-
-    double x = x_prime / (1 + tau * tau);
-    double z = z_prime / (1 + tau * tau);
-
-    Eigen::Matrix<double, 3, 4> R_T;
-    R_T <<
-        (1 - tau * tau) / (1 + tau * tau),     0,          (2 * tau) / (1 + tau * tau),         x,
-                        0,                     1,                      0,                       0,
-           -(2 * tau) / (1 + tau * tau),       0,       (1 - tau * tau) / (1 + tau * tau),      z;
+    Eigen::Matrix<double, 3, 3> R_bar;
+    R_bar <<
+        (1 - tau * tau),     0,          (2 * tau),
+          0,                     1 + tau * tau,                      0,
+           -(2 * tau),       0,       (1 - tau * tau);
+    
+    Eigen::Matrix<double, 3, 1> T;
+    T << x_prime, 0, z_prime;
     
     double total_cost = 0;
     for (int i = 0; i < N; ++i) {
       Eigen::Matrix<double, 3, 1> u = normalized_image_points.block(0, i, 3, 1);
-      Eigen::Matrix<double, 4, 1> P = world_points_opencv.block(0, i, 4, 1);
+      Eigen::Matrix<double, 3, 1> P = world_points_opencv.block(0, i, 3, 1);
 
-      Eigen::Matrix<double, 3, 1> projected_point = R_T * P;
+      Eigen::Matrix<double, 3, 1> projected_point = R_bar * P + T;
 
-      double residual_x = u(0) - projected_point(0) / projected_point(2);
-      double residual_y = u(1) - projected_point(1) / projected_point(2);
+      double residual_x = projected_point(2) * u(0) - projected_point(0);
+      double residual_y = projected_point(2) * u(1) - projected_point(1);
       total_cost += residual_x * residual_x + residual_y * residual_y;
     }
     return total_cost;
@@ -320,7 +318,7 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
     double z_prime = (B * D - 2 * A * E) / det;
     x_prime_samples.at(i) = x_prime;
     z_prime_samples.at(i) = z_prime;
-    printf("(x_prime sample: %f), (z_prime sample: %f)\n", x_prime, z_prime);
+    // printf("(x_prime sample: %f), (z_prime sample: %f)\n", x_prime, z_prime);
   }
 
   // Fit samples to a quadratic.
@@ -331,8 +329,8 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   double B_z_prime = (4 * (z_prime_samples.at(1) - C_z_prime) - (z_prime_samples.at(2) - C_z_prime)) / 2;
   double A_z_prime = z_prime_samples.at(1) - C_z_prime - B_z_prime;
 
-  printf("(C_x_prime: %f), (B_x_prime: %f), (A_x_prime: %f)\n", C_x_prime, B_x_prime, A_x_prime);
-  printf("(C_z_prime: %f), (B_z_prime: %f), (A_z_prime: %f)\n", C_z_prime, B_z_prime, A_z_prime);
+  // printf("(C_x_prime: %f), (B_x_prime: %f), (A_x_prime: %f)\n", C_x_prime, B_x_prime, A_x_prime);
+  // printf("(C_z_prime: %f), (B_z_prime: %f), (A_z_prime: %f)\n", C_z_prime, B_z_prime, A_z_prime);
 
   auto tau_cost = [&](double tau) -> double {
     double x_prime = A_x_prime * tau * tau + B_x_prime * tau + C_x_prime;
@@ -347,16 +345,16 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
     costs(i) = tau_cost(i);
   }
 
-  std::cout << "tau samples:\n" << costs << std::endl;
+  // std::cout << "tau samples:\n" << costs << std::endl;
   
   Eigen::Matrix<double, 5, 1> coeffs = fit_quartic(samples, costs);
 
-  std::cout << "Coeffs:\n" << coeffs << std::endl;
+  // std::cout << "Coeffs:\n" << coeffs << std::endl;
 
   // Step 5
   double tau = minimize_quartic(coeffs);
 
-  printf("Final tau is: %f\n", tau);
+  // printf("Final tau is: %f\n", tau);
 
   // Step 6
   double x_prime = A_x_prime * tau * tau + B_x_prime * tau + C_x_prime;
@@ -367,9 +365,9 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   frc::Pose3d pose{frc::Translation3d(units::meter_t{x}, 0_m, units::meter_t{z}), 
                    frc::Rotation3d(0_rad, units::radian_t{theta}, 0_rad)};
   
-  printf("Final x is: %f\n", x);
-  printf("Final z is: %f\n", z);
-  printf("Final theta is: %f\n", theta);
+  // printf("Final x is: %f\n", x);
+  // printf("Final z is: %f\n", z);
+  // printf("Final theta is: %f\n", theta);
 
   // Step 7
   Eigen::Matrix3d transform;
