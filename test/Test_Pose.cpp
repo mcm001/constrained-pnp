@@ -120,37 +120,45 @@ projectPoints(double f_x,
 }
 
 TEST(PoseTest, Projection) {
-  cpnp::ProblemParams params(4);
+  // cpnp::ProblemParams params(4);
 
   // params.K << 599.375, 0., 479.5, 0., 599.16666667, 359.5, 0., 0., 1.;
   // params.K << 100, 0., 0, 0., 100, 0, 0., 0., 1.;
 
-  params.f_x = 100;
-  params.f_y = 100;
-  params.c_x = 0;
-  params.c_y = 0;
+  // params.f_x = 100;
+  // params.f_y = 100;
+  // params.c_x = 0;
+  // params.c_y = 0;
 
-  params.worldPoints = getTestTags();
+  // params.worldPoints = getTestTags();
 
-  frc::Transform3d robot2camera {};
-  params.imagePoints = projectPoints(params.f_x, params.f_y, params.c_x, params.c_y, robot2camera.ToMatrix(), params.worldPoints);
+  // frc::Transform3d robot2camera {};
+  // params.imagePoints = projectPoints(params.f_x, params.f_y, params.c_x, params.c_y, robot2camera.ToMatrix(), params.worldPoints);
 
-  std::cout << "world points:\n" << params.worldPoints << std::endl;
-  std::cout << "image points:\n" << params.imagePoints << std::endl;
+  // std::cout << "world points:\n" << params.worldPoints << std::endl;
+  // std::cout << "image points:\n" << params.imagePoints << std::endl;
 }
 
 TEST(PoseTest, Naive) {
-  cpnp::ProblemParams params(4);
+  cpnp::ProblemParams params;
 
   params.f_x = 100;
   params.f_y = 100;
   params.c_x = 0;
   params.c_y = 0;
 
-  params.worldPoints = getTestTags();
-
+  auto tags = getTestTags();
   frc::Transform3d robot2camera {frc::Pose3d{}, frc::Pose3d{frc::Translation3d{-1.3_m, 0.25_m, 0_m}, frc::Rotation3d{0_rad, 0_rad, -1.5_rad}}};
-  params.imagePoints = projectPoints(params.f_x, params.f_y, params.c_x, params.c_y, robot2camera.ToMatrix(), params.worldPoints);
+  auto imgpoints = projectPoints(params.f_x, params.f_y, params.c_x, params.c_y, robot2camera.ToMatrix(), tags);
+
+  for (int i = 0; i < tags.cols(); ++i) {
+    params.imagePoints.push_back(imgpoints(0, i));
+    params.imagePoints.push_back(imgpoints(1, i));
+
+    params.worldPoints.push_back(tags(0, i));
+    params.worldPoints.push_back(tags(1, i));
+    params.worldPoints.push_back(tags(2, i));
+  }
 
   auto t0 = std::chrono::high_resolution_clock::now();
   auto polynomial_ret = cpnp::solve_polynomial(params);

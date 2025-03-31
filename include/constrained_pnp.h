@@ -9,15 +9,10 @@
 namespace cpnp {
     struct ProblemParams {
         // Homogonous world points, (x y z 1)^T
-        Eigen::Matrix<double, 4, Eigen::Dynamic> worldPoints;
+        std::vector<double> worldPoints;
         // Image points, 
-        Eigen::Matrix<double, 2, Eigen::Dynamic> imagePoints;
+        std::vector<double> imagePoints;
         double f_x, f_y, c_x, c_y;
-
-        explicit ProblemParams(int nLandmarks)
-        : worldPoints(4, nLandmarks),
-          imagePoints(2, nLandmarks)
-        {}   
     };
 
     frc::Pose2d solve_naive(const ProblemParams& problem);

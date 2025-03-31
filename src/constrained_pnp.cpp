@@ -69,13 +69,13 @@ frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
 
   // Convert the points from the WPI coordinate system (NWU) to OpenCV's coordinate system 
   // (EDN).
-  Eigen::Matrix<double, 4, 4> nwu_to_edn;
-  nwu_to_edn <<
-    0, -1,  0,  0,
-    0,  0, -1,  0,
-    1,  0,  0,  0,
-    0,  0,  0,  1;
-  auto world_points_opencv = nwu_to_edn * params.worldPoints;
+  // Eigen::Matrix<double, 4, 4> nwu_to_edn;
+  // nwu_to_edn <<
+  //   0, -1,  0,  0,
+  //   0,  0, -1,  0,
+  //   1,  0,  0,  0,
+  //   0,  0,  0,  1;
+  // auto world_points_opencv = nwu_to_edn * params.worldPoints;
 
   OptimizationProblem problem{};
 
@@ -102,20 +102,20 @@ frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
   K << params.f_x, 0, params.c_x, 0, params.f_y, params.c_y, 0, 0, 1;
 
   // TODO - can i just do this whole matrix at once, one col per observation?
-  auto predicted_image_point = K * (R_T * world_points_opencv);
+  // auto predicted_image_point = K * (R_T * world_points_opencv);
 
-  auto u_pred = sleipnir::CwiseReduce(predicted_image_point.Row(0), predicted_image_point.Row(2), std::divides<>{});
-  auto v_pred = sleipnir::CwiseReduce(predicted_image_point.Row(1), predicted_image_point.Row(2), std::divides<>{});
+  // auto u_pred = sleipnir::CwiseReduce(predicted_image_point.Row(0), predicted_image_point.Row(2), std::divides<>{});
+  // auto v_pred = sleipnir::CwiseReduce(predicted_image_point.Row(1), predicted_image_point.Row(2), std::divides<>{});
 
   Variable cost;
-  for (int i = 0; i < u_pred.Cols(); ++i) {
-    auto E_x = u_pred(0, i) - params.imagePoints(0, i);
-    auto E_y = v_pred(0, i) - params.imagePoints(1, i);
-    cost += E_x * E_x + E_y * E_y;
-  }
+  // for (int i = 0; i < u_pred.Cols(); ++i) {
+  //   auto E_x = u_pred(0, i) - params.imagePoints[2 * i];
+  //   auto E_y = v_pred(0, i) - params.imagePoints[2 * i + 1];
+  //   cost += E_x * E_x + E_y * E_y;
+  // }
 
   fmt::println("Initial cost: {}", cost.Value());
-  fmt::println("Predicted corners:\n{}\n{}", u_pred.Value(), v_pred.Value());
+  // fmt::println("Predicted corners:\n{}\n{}", u_pred.Value(), v_pred.Value());
 
   problem.Minimize(cost);
 
@@ -162,12 +162,22 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   //      (fancy quadratic formula).
   //   4. Undo the change of variables and solve for theta, x, and z in terms of tau.
   //   5. Undo the opencv transform and invert the transform.
-  int N = params.imagePoints.cols();
+  int N = params.imagePoints.size() / 2;
 
   double inv_f_x = 1 / params.f_x;
   double inv_f_y = 1 / params.f_y;
   double c_x = params.c_x;
   double c_y = params.c_y;
+
+  // std::vector<double> imagePoints(2 * N);
+  // std::vector<double> worldPoints(3 * N);
+  // for (int i = 0; i < N; i++) {
+  //   imagePoints[2 * i] = params.imagePoints(0, i);
+  //   imagePoints[2 * i + 1] = params.imagePoints(1, i);
+  //   worldPoints[3 * i] = params.worldPoints(0, i);
+  //   worldPoints[3 * i + 1] = params.worldPoints(1, i);
+  //   worldPoints[3 * i + 2] = params.worldPoints(2, i);
+  // }
 
   // Step 1
   // ok this looks unreadable but i swear it makes sense
@@ -189,15 +199,15 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
 
   for (int i = 0; i < N; i++) {
     // Convert image points to normalized points
-    double p_x = params.imagePoints(0, i);
-    double p_y = params.imagePoints(1, i);
+    double p_x = params.imagePoints[2 * i];
+    double p_y = params.imagePoints[2 * i + 1];
     double u = (p_x - c_x) * inv_f_x;
     double v = (p_y - c_y) * inv_f_y;
 
     // We do the opencv coordinate transform here to avoid an extra matrix multiply.
-    double X = -params.worldPoints(1, i);
-    double Y = -params.worldPoints(2, i);
-    double Z = params.worldPoints(0, i);
+    double Z = params.worldPoints[3 * i];
+    double X = -params.worldPoints[3 * i + 1];
+    double Y = -params.worldPoints[3 * i + 2];
 
     double Ax_tau = -Z * u + X;
     double Bx_tau = -2 * (X * u + Z);
