@@ -98,7 +98,7 @@ projectPoints(Eigen::Matrix<double, 3, 3> K,
   Eigen::Matrix4d field2camera = field2camera_wpi * camera2opencv;
 
   // transform the points to camera space
-  auto camera2corners = field2camera.transpose() * field2corners; 
+  auto camera2corners = field2camera.inverse() * field2corners; 
 
   // project the points. This is verbose but whatever
   auto pointsUnnormalized =
@@ -137,7 +137,7 @@ TEST(PoseTest, Naive) {
 
   params.worldPoints = getTestTags();
 
-  frc::Transform3d robot2camera {};
+  frc::Transform3d robot2camera {frc::Pose3d{}, frc::Pose3d{frc::Translation3d{0_m, 1_m, 0_m}, frc::Rotation3d{0_rad, 0_rad, 1_rad}}};
   params.imagePoints = projectPoints(params.K, robot2camera.ToMatrix(), params.worldPoints);
 
   auto polynomial_ret = cpnp::solve_polynomial(params);

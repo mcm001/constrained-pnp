@@ -236,13 +236,14 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   int N = params.imagePoints.cols();
   
   // Step 1
+  auto K_inverse = params.K.inverse();
   Eigen::Matrix<double, 3, Eigen::Dynamic> normalized_image_points{3, N};
   for (int i = 0; i < N; ++i) {
     Eigen::Matrix<double, 3, 1> homogenous_image_point;
     homogenous_image_point(0, 0) = params.imagePoints(0, i);
     homogenous_image_point(1, 0) = params.imagePoints(1, i);
     homogenous_image_point(2, 0) = 1;
-    Eigen::Matrix<double, 3, 1> normalized_image_point = params.K.inverse() * homogenous_image_point;
+    Eigen::Matrix<double, 3, 1> normalized_image_point = K_inverse * homogenous_image_point;
     normalized_image_points(0, i) = normalized_image_point(0, 0);
     normalized_image_points(1, i) = normalized_image_point(1, 0);
     normalized_image_points(2, i) = normalized_image_point(2, 0);
@@ -266,9 +267,9 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
 
     Eigen::Matrix<double, 3, 4> R_T;
     R_T <<
-        (1 - tau * tau) / (1 + tau * tau),     0,       (2 * tau) / (1 + tau * tau),      x,
-            0,         1,           0,          0,
-      -(2 * tau) / (1 + tau * tau),     0,       (1 - tau * tau) / (1 + tau * tau),      z;
+        (1 - tau * tau) / (1 + tau * tau),     0,          (2 * tau) / (1 + tau * tau),         x,
+                        0,                     1,                      0,                       0,
+           -(2 * tau) / (1 + tau * tau),       0,       (1 - tau * tau) / (1 + tau * tau),      z;
     
     double total_cost = 0;
     for (int i = 0; i < N; ++i) {
@@ -305,7 +306,7 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
     double c4 = cost(0, 2, tau);
     double c5 = cost(1, 1, tau);
 
-    printf("(c0: %f), (c1: %f), (c2: %f), (c3: %f), (c4: %f), (c5: %f)\n", c0, c1, c2, c3, c4, c5);
+    // printf("(c0: %f), (c1: %f), (c2: %f), (c3: %f), (c4: %f), (c5: %f)\n", c0, c1, c2, c3, c4, c5);
 
     double F = c0;
     double C = (c4 - 2 * c3 + c0) / 2;
