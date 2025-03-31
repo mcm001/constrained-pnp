@@ -217,16 +217,16 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   int N = params.imagePoints.cols();
   
   // Step 1
-  const auto K_inverse = params.K.inverse().block(0, 0, 2, 3);
+  const auto K_inverse = params.K_inverse.block(0, 0, 2, 3);
   Eigen::Matrix<double, 2, Eigen::Dynamic> normalized_image_points = K_inverse * params.imagePoints;
 
   // Step 2
-  constexpr Eigen::Matrix<double, 4, 4> nwu_to_edn{
-        {0, -1,  0,  0},
-        {0,  0, -1,  0},
-        {1,  0,  0,  0},
-        {0,  0,  0,  1}};
-  const auto world_points_opencv = nwu_to_edn * params.worldPoints;
+  // constexpr Eigen::Matrix<double, 4, 4> nwu_to_edn{
+  //       {0, -1,  0,  0},
+  //       {0,  0, -1,  0},
+  //       {1,  0,  0,  0},
+  //       {0,  0,  0,  1}};
+  // const auto world_points_opencv = nwu_to_edn * params.worldPoints;
 
   // Step 3
   // ok this looks unreadable but i swear it makes sense
@@ -248,9 +248,9 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   for (int i = 0; i < N; i++) {
     double u = normalized_image_points(0, i);
     double v = normalized_image_points(1, i);
-    double X = world_points_opencv(0, i);
-    double Y = world_points_opencv(1, i);
-    double Z = world_points_opencv(2, i);
+    double X = -params.worldPoints(1, i);
+    double Y = -params.worldPoints(2, i);
+    double Z = params.worldPoints(0, i);
 
     double Ax_tau = -Z * u + X;
     double Bx_tau = -2 * (X * u + Z);
