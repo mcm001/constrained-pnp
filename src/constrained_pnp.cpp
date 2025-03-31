@@ -15,10 +15,10 @@ std::array<std::optional<double>, 3> solve_cubic_roots(Eigen::Matrix<double, 4, 
   std::array<std::optional<double>, 3> roots = { std::nullopt, std::nullopt, std::nullopt };
   const double tol = 1e-8;
   
-  double a3 = coeffs(0);
-  double a2 = coeffs(1);
-  double a1 = coeffs(2);
-  double a0 = coeffs(3);
+  double a3 = coeffs(3);
+  double a2 = coeffs(2);
+  double a1 = coeffs(1);
+  double a0 = coeffs(0);
   
   // Handle degenerate (quadratic or linear) cases.
   if (std::fabs(a3) < tol) {
@@ -91,10 +91,10 @@ std::array<std::optional<double>, 3> solve_cubic_roots(Eigen::Matrix<double, 4, 
 // Note we assume the polynomial has a finite value for the minimum.
 double minimize_quartic(Eigen::Matrix<double, 5, 1> coeffs) {
   Eigen::Matrix<double, 4, 1> deriv;
-  deriv(0) = 4 * coeffs(0);  // coefficient for x^3
-  deriv(1) = 3 * coeffs(1);  // coefficient for x^2
-  deriv(2) = 2 * coeffs(2);  // coefficient for x
-  deriv(3) = coeffs(3);      // constant term
+  deriv(0) = coeffs(1);  // coefficient for x^3
+  deriv(1) = 2 * coeffs(2);  // coefficient for x^2
+  deriv(2) = 3 * coeffs(3);  // coefficient for x
+  deriv(3) = 4 * coeffs(4);      // constant term
   auto critical_points = solve_cubic_roots(deriv);
   double min_x = 0;
   double min_y = INFINITY;
@@ -104,7 +104,7 @@ double minimize_quartic(Eigen::Matrix<double, 5, 1> coeffs) {
       double y = coeffs(4) * std::pow(x, 4) + 
                  coeffs(3) * std::pow(x, 3) + 
                  coeffs(2) * std::pow(x, 2) + 
-                 coeffs(1) + 
+                 coeffs(1) * x + 
                  coeffs(0);
       if (y < min_y) {
         min_x = x;
@@ -154,8 +154,8 @@ frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
   auto robot_z = problem.DecisionVariable();
   auto robot_θ = problem.DecisionVariable();
 
-  robot_x.SetValue(0);
-  robot_z.SetValue(0);
+  robot_x.SetValue(4);
+  robot_z.SetValue(-1);
   robot_θ.SetValue(0);
 
   // Generate r_t
@@ -255,10 +255,10 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
     0,  0, -1,  0,
     1,  0,  0,  0,
     0,  0,  0,  1;
-  auto world_points_cv = nwu_to_edn * params.worldPoints;
+  auto world_points_opencv = nwu_to_edn * params.worldPoints;
 
   // Step 3
-  auto cost = [N, normalized_image_points, world_points_cv](double x_prime, double z_prime, double tau) -> double {
+  auto cost = [N, normalized_image_points, world_points_opencv](double x_prime, double z_prime, double tau) -> double {
     // printf("(x': %f), (y': %f), (tau: %f)\n", x_prime, z_prime, tau);
 
     double x = x_prime / (1 + tau * tau);
@@ -273,7 +273,7 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
     double total_cost = 0;
     for (int i = 0; i < N; ++i) {
       Eigen::Matrix<double, 3, 1> u = normalized_image_points.block(0, i, 3, 1);
-      Eigen::Matrix<double, 4, 1> P = world_points_cv.block(0, i, 4, 1);
+      Eigen::Matrix<double, 4, 1> P = world_points_opencv.block(0, i, 4, 1);
 
       Eigen::Matrix<double, 3, 1> projected_point = R_T * P;
 
