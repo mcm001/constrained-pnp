@@ -100,8 +100,13 @@ projectPoints(double f_x,
   };
   Eigen::Matrix4d field2camera = field2camera_wpi * camera2opencv;
 
+  std::cout << "field2camera" << std::endl << field2camera << std::endl;
+  std::cout << "field2corners" << std::endl << field2corners << std::endl;
+
   // transform the points to camera space
   auto camera2corners = field2camera.inverse() * field2corners; 
+
+  std::cout << "camera2corners" << std::endl << camera2corners << std::endl;
 
   // project the points. This is verbose but whatever
   Eigen::Matrix<double, 3, 3> K;
@@ -174,4 +179,6 @@ TEST(PoseTest, Naive) {
 
   fmt::println("Polynomial method says robot is at:\n{}", polynomial_ret.ToMatrix());
   fmt::println("Naive method says robot is at:\n{}", naive_ret.ToMatrix());
+
+  EXPECT_NEAR(field2robot.X().to<double>(), naive_ret.X().to<double>(), 0.01);
 }

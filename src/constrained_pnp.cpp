@@ -119,7 +119,7 @@ frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
 
   problem.Minimize(cost);
 
-  auto status = problem.Solve({.diagnostics=false});
+  auto status = problem.Solve({.diagnostics=true});
 
   fmt::println("Final cost: {}", cost.Value());
 
