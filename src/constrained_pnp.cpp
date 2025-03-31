@@ -154,9 +154,9 @@ frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
   auto robot_z = problem.DecisionVariable();
   auto robot_θ = problem.DecisionVariable();
 
-  robot_x.SetValue(1);
-  robot_z.SetValue(1);
-  robot_θ.SetValue(1);
+  robot_x.SetValue(0);
+  robot_z.SetValue(0);
+  robot_θ.SetValue(0);
 
   // Generate r_t
   // rotation about +Y plus pose
@@ -189,6 +189,8 @@ frc::Pose2d cpnp::solve_naive(const ProblemParams & params)
   auto status = problem.Solve({.diagnostics=false});
 
   fmt::println("Final cost: {}", cost.Value());
+
+  // fmt::println("Final x: {}, z: {}, theta: {}", robot_x.Value(), robot_z.Value(), robot_θ.Value());
 
   frc::Pose3d pose{frc::Translation3d{units::meter_t{robot_x.Value()}, units::meter_t{0}, units::meter_t(robot_z.Value())}, 
                    frc::Rotation3d{units::radian_t{0}, units::radian_t{robot_θ.Value()}, units::radian_t{0}}};
@@ -365,9 +367,7 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   frc::Pose3d pose{frc::Translation3d(units::meter_t{x}, 0_m, units::meter_t{z}), 
                    frc::Rotation3d(0_rad, units::radian_t{theta}, 0_rad)};
   
-  // printf("Final x is: %f\n", x);
-  // printf("Final z is: %f\n", z);
-  // printf("Final theta is: %f\n", theta);
+  // fmt::println("Final x: {}, z: {}, theta: {}", x, z, theta);
 
   // Step 7
   Eigen::Matrix3d transform;

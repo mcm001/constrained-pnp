@@ -137,10 +137,15 @@ TEST(PoseTest, Naive) {
 
   params.worldPoints = getTestTags();
 
-  frc::Transform3d robot2camera {frc::Pose3d{}, frc::Pose3d{frc::Translation3d{1_m, 1_m, 0_m}, frc::Rotation3d{0_rad, 0_rad, 1_rad}}};
+  frc::Transform3d robot2camera {frc::Pose3d{}, frc::Pose3d{frc::Translation3d{11.2_m, -5.2_m, 0_m}, frc::Rotation3d{0_rad, 0_rad, 82_rad}}};
   params.imagePoints = projectPoints(params.K, robot2camera.ToMatrix(), params.worldPoints);
 
+  auto t0 = std::chrono::high_resolution_clock::now();
   auto polynomial_ret = cpnp::solve_polynomial(params);
+  auto t1 = std::chrono::high_resolution_clock::now();
+
+  fmt::println("Polynomial solve time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t1-t0).count() / 1e6);
+  
   auto naive_ret = cpnp::solve_naive(params);
   fmt::println("Polynomial method says robot is at:\n{}", polynomial_ret.ToMatrix());
   fmt::println("Naive method says robot is at:\n{}", naive_ret.ToMatrix());
