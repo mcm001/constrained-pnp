@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.20)
 
 project(constrained_pnp)
 
+set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 enable_testing()

@@ -238,6 +238,7 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   int N = params.imagePoints.cols();
   
   // Step 1
+  auto t0 = std::chrono::high_resolution_clock::now();
   auto K_inverse = params.K.inverse();
   Eigen::Matrix<double, 3, Eigen::Dynamic> normalized_image_points{3, N};
   for (int i = 0; i < N; ++i) {
@@ -252,6 +253,7 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   }
 
   // Step 2
+  auto t1 = std::chrono::high_resolution_clock::now();
   Eigen::Matrix<double, 4, 4> nwu_to_edn;
   nwu_to_edn <<
     0, -1,  0,  0,
@@ -260,107 +262,252 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
     0,  0,  0,  1;
   auto world_points_opencv = nwu_to_edn * params.worldPoints;
 
+
+  auto t2 = std::chrono::high_resolution_clock::now();
   // Step 3
-  auto cost = [N, normalized_image_points, world_points_opencv](double x_prime, double z_prime, double tau) -> double {
-    Eigen::Matrix<double, 3, 3> R_bar;
-    R_bar <<
-        (1 - tau * tau),     0,          (2 * tau),
-          0,                     1 + tau * tau,                      0,
-           -(2 * tau),       0,       (1 - tau * tau);
-    
-    Eigen::Matrix<double, 3, 1> T;
-    T << x_prime, 0, z_prime;
-    
-    double total_cost = 0;
-    for (int i = 0; i < N; ++i) {
-      Eigen::Matrix<double, 3, 1> u = normalized_image_points.block(0, i, 3, 1);
-      Eigen::Matrix<double, 3, 1> P = world_points_opencv.block(0, i, 3, 1);
+  // 
+  // The cost function has the form
+  // 
+  //   a_0 * x⁴ + a_1 * x³ + a_2 * x² + 
+  //   a_3 * x² * y + a_4 * x * y + a_5 * y² + a_6
+  //   a_6 * x² * z + a_7 * x * z + a_8 * z² +
+  //   a_9
+  // 
+  // where
+  // 
+  //   x = tau, y = x', z = z'
+  // 
+  // We explicitly solve for this polynomial.
 
-      Eigen::Matrix<double, 3, 1> projected_point = R_bar * P + T;
+  // The cost function has the form
+  // 
+  // ∑ ∑ ∑ a_(i,j,k) * xⁱ * yʲ + 
+  // i j k
 
-      double residual_x = projected_point(2) * u(0) - projected_point(0);
-      double residual_y = projected_point(2) * u(1) - projected_point(1);
-      total_cost += residual_x * residual_x + residual_y * residual_y;
-    }
-    return total_cost;
-  };
+  // The x residual has the form
+  // 
+  // (A + B + C + D + E) = (a_0 * x² + a_1 * x + a_2 * y + a_3 * z + a_4)^2
+  //
+  // Expanding gives
+  // 
+  // A² + B² + C² + D² + E² + 2(AB + AC + AD + AE + BC + BD + BE + CD + CE + DE) =
+  // a_0^2 * x^4 + a_1^2 * x^2 + a_2^2 * y^2 + a_3^2 * z^2 + z_4^2 + 2(a_0a_1x^3 + )
 
-  // Step 4. We want to find the optimal x' and z' value for each value of theta. It turns
-  // out they are quadratic functions of tau, so let's plot some points and fit a curve.
-  // Lucky us!
-  std::array<double, 3> tau_samples = {0, 1, 2};
-  std::array<double, 3> x_prime_samples;
-  std::array<double, 3> z_prime_samples;
 
-  for (int i = 0; i < 3; ++i) {
-    double tau = tau_samples.at(i);
-    // This is a bivariate quadratic 
-    // 
-    //   Ax^2 + Bxy + Cy^2 + Dx + Ey + F
-    // 
-    // let's plot some more points...
-    double c0 = cost(0, 0, tau);
-    double c1 = cost(1, 0, tau);
-    double c2 = cost(2, 0, tau);
-    double c3 = cost(0, 1, tau);
-    double c4 = cost(0, 2, tau);
-    double c5 = cost(1, 1, tau);
+  // ok this looks unreadable but i swear it makes sense
+  double a_400 = 0;
+  double a_300 = 0;
+  double a_200 = 0;
+  double a_210 = 0;
+  double a_201 = 0;
+  double a_100 = 0;
+  double a_110 = 0;
+  double a_101 = 0;
+  double a_020 = 0;
+  double a_010 = 0;
+  double a_011 = 0;
+  double a_002 = 0;
+  double a_001 = 0;
+  double a_000 = 0;
 
-    // printf("(c0: %f), (c1: %f), (c2: %f), (c3: %f), (c4: %f), (c5: %f)\n", c0, c1, c2, c3, c4, c5);
+  for (int i = 0; i < N; i++) {
+    double u = normalized_image_points(0, i);
+    double v = normalized_image_points(1, i);
+    double X = world_points_opencv(0, i);
+    double Y = world_points_opencv(1, i);
+    double Z = world_points_opencv(2, i);
 
-    double F = c0;
-    double C = (c4 - 2 * c3 + c0) / 2;
-    double A = (c2 - 2 * c1 + c0) / 2;
-    double E = c3 - C - F;
-    double D = c1 - A - F;
-    double B = c5 - A - C - D - E - F;
+    double Ax_tau = -Z * u + X;
+    double Bx_tau = -2 * X * u - 2 * Z;
+    double Cx_tau = Z * u - X;
 
-    double det = 4 * A * C - B * B;
-    double x_prime = (-2 * C * D + B * E) / det;
-    double z_prime = (B * D - 2 * A * E) / det;
-    x_prime_samples.at(i) = x_prime;
-    z_prime_samples.at(i) = z_prime;
-    // printf("(x_prime sample: %f), (z_prime sample: %f)\n", x_prime, z_prime);
+    double Ay_tau = -Z * v - Y;
+    double By_tau = -2 * X * v;
+    double Cy_tau = Z * v - Y;
+
+    double Ax_xp = -1;
+    double Ax_zp = u;
+
+    double Ay_xp = 0;
+    double Ay_zp = v;
+
+    // Add the components from the x residual
+    a_400 += Ax_tau * Ax_tau;
+    a_300 += 2 * Ax_tau * Bx_tau;
+    a_200 += 2 * Ax_tau * Cx_tau + Bx_tau * Bx_tau;
+    a_210 += 2 * Ax_tau * Ax_xp;
+    a_201 += 2 * Ax_tau * Ax_zp;
+    a_100 += 2 * Bx_tau * Cx_tau;
+    a_110 += 2 * Bx_tau * Ax_xp;
+    a_101 += 2 * Bx_tau * Ax_zp;
+    a_020 += Ax_xp * Ax_xp;
+    a_010 += 2 * Ax_xp * Cx_tau;
+    a_011 += 2 * Ax_xp * Ax_zp;
+    a_002 += Ax_zp * Ax_zp;
+    a_001 += 2 * Ax_zp * Cx_tau;
+    a_000 += Cx_tau * Cx_tau;
+
+    // Add the components from the y residual
+    a_400 += Ay_tau * Ay_tau;
+    a_300 += 2 * Ay_tau * By_tau;
+    a_200 += 2 * Ay_tau * Cy_tau + By_tau * By_tau;
+    a_210 += 2 * Ay_tau * Ay_xp;
+    a_201 += 2 * Ay_tau * Ay_zp;
+    a_100 += 2 * By_tau * Cy_tau;
+    a_110 += 2 * By_tau * Ay_xp;
+    a_101 += 2 * By_tau * Ay_zp;
+    a_020 += Ay_xp * Ay_xp;
+    a_010 += 2 * Ay_xp * Cy_tau;
+    a_011 += 2 * Ay_xp * Ay_zp;
+    a_002 += Ay_zp * Ay_zp;
+    a_001 += 2 * Ay_zp * Cy_tau;
+    a_000 += Cy_tau * Cy_tau;
+
+    // double residual_x = Ax_tau * tau * tau + Bx_tau * tau + Cx_tau - x_prime + u * z_prime;
+    // double residual_y = Ay_tau * tau * tau + By_tau * tau + Cy_tau + z_prime * v;
+
+    // total_cost += residual_x * residual_x + residual_y * residual_y;
   }
 
-  // Fit samples to a quadratic.
-  double C_x_prime = x_prime_samples.at(0);
-  double B_x_prime = (4 * (x_prime_samples.at(1) - C_x_prime) - (x_prime_samples.at(2) - C_x_prime)) / 2;
-  double A_x_prime = x_prime_samples.at(1) - C_x_prime - B_x_prime;
-  double C_z_prime = z_prime_samples.at(0);
-  double B_z_prime = (4 * (z_prime_samples.at(1) - C_z_prime) - (z_prime_samples.at(2) - C_z_prime)) / 2;
-  double A_z_prime = z_prime_samples.at(1) - C_z_prime - B_z_prime;
+  auto cost = [&](double x_prime, double z_prime, double tau) -> double {
+    double x = tau;
+    double y = x_prime;
+    double z = z_prime;
 
-  // printf("(C_x_prime: %f), (B_x_prime: %f), (A_x_prime: %f)\n", C_x_prime, B_x_prime, A_x_prime);
-  // printf("(C_z_prime: %f), (B_z_prime: %f), (A_z_prime: %f)\n", C_z_prime, B_z_prime, A_z_prime);
-
-  auto tau_cost = [&](double tau) -> double {
-    double x_prime = A_x_prime * tau * tau + B_x_prime * tau + C_x_prime;
-    double z_prime = A_z_prime * tau * tau + B_z_prime * tau + C_z_prime;
-    return cost(x_prime, z_prime, tau);
+    return a_400 * x * x * x * x +
+           a_300 * x * x * x +
+           a_200 * x * x +
+           a_210 * x * x * y +
+           a_201 * x * x * z +
+           a_100 * x +
+           a_110 * x * y +
+           a_101 * x * z +
+           a_020 * y * y +
+           a_010 * y +
+           a_011 * y * z +
+           a_002 * z * z +
+           a_001 * z +
+           a_000;
   };
-  
-  // Fit the cost function in terms of tau to a quartic polynomial.
-  Eigen::Matrix<double, 5, 1> samples, costs;
-  for (int i = 0; i < 5; ++i) {
-    samples(i) = i;
-    costs(i) = tau_cost(i);
-  }
 
-  // std::cout << "tau samples:\n" << costs << std::endl;
-  
-  Eigen::Matrix<double, 5, 1> coeffs = fit_quartic(samples, costs);
+  auto t3 = std::chrono::high_resolution_clock::now();
+  // Step 4. We want to find the optimal x' and z' value for each value of theta.
+  // 
+  // Taking the derivative of the cost function c(x, y, z) and setting it zero gives
+  // 
+  //   d/dy c(x,y,z) = a_210 * x² + a_110 * x + 2 * a_020 * y + a_010 + a_011 * z = 0
+  //   d/dz c(x,y,z) = a_201 * x² + a_101 * x + 2 * a_002 * z + a_001 + a_011 * y = 0
+  // 
+  // Next we solve for y and z in terms of x in a linear system
+  // 
+  //   [2 * a_020    a_011  ][y] = [-(a_210 * x² + a_110 * x + a_010)]  
+  //   [  a_011    2 * a_002][z]   [-(a_201 * x² + a_101 * x + a_001)]
+  // 
+  // This gives
+  // 
+  //   y = 1 / (4 * a_020 * a_002 - a_011 * a_011) * ((2 * a_002) * (-(a_210 * x² + a_110 * x + a_010)) + (-a_011) * (-(a_201 * x² + a_101 * x + a_001)))
+  //   z = 1 / (4 * a_020 * a_002 - a_011 * a_011) * ((-a_011) * (-(a_210 * x² + a_110 * x + a_010)) + (2 * a_020) * (-(a_201 * x² + a_101 * x + a_001)))
+  // 
+  // Finally we can simplify this into constants
+  // 
+  //   y = A_y * x^2 + B_y * x + C_y
+  //   z = A_z * x^2 + B_z * x + C_z
+  double det = 4 * a_020 * a_002 - a_011 * a_011;
 
-  // std::cout << "Coeffs:\n" << coeffs << std::endl;
+  double A_y = (-2 * a_002 * a_210 + a_011 * a_201) / det;
+  double B_y = (-2 * a_002 * a_110 + a_011 * a_101) / det;
+  double C_y = (-2 * a_002 * a_010 + a_011 * a_001) / det;
+
+  double A_z = (a_011 * a_210 - 2 * a_020 * a_201) / det;
+  double B_z = (a_011 * a_110 - 2 * a_020 * a_101) / det;
+  double C_z = (a_011 * a_010 - 2 * a_020 * a_001) / det;
+
+  // Substituting back in gives
+  double b_4 = 0;
+  double b_3 = 0;
+  double b_2 = 0;
+  double b_1 = 0;
+  double b_0 = 0;
+
+  // a_400
+  b_4 += a_400;
+
+  // a_300
+  b_3 += a_300;
+
+  // a_200
+  b_2 += a_200;
+
+  // a_210
+  b_4 += a_210 * A_y;
+  b_3 += a_210 * B_y;
+  b_2 += a_210 * C_y;
+
+  // a_201
+  b_4 += a_201 * A_z;
+  b_3 += a_201 * B_z;
+  b_2 += a_201 * C_z;
+
+  // a_100
+  b_1 += a_100;
+
+  // a_110
+  b_3 += a_110 * A_y;
+  b_2 += a_110 * B_y;
+  b_1 += a_110 * C_y;
+
+  // a_101
+  b_3 += a_101 * A_z;
+  b_2 += a_101 * B_z;
+  b_1 += a_101 * C_z;
+
+  // a_020
+  b_4 += a_020 * (A_y * A_y);
+  b_3 += a_020 * (A_y * B_y + B_y * A_y);
+  b_2 += a_020 * (B_y * B_y + A_y * C_y + C_y * A_y);
+  b_1 += a_020 * (B_y * C_y + C_y * B_y);
+  b_0 += a_020 * (C_y * C_y);
+
+  // a_010
+  b_2 += a_010 * A_y;
+  b_1 += a_010 * B_y;
+  b_0 += a_010 * C_y;
+
+  // a_011
+  b_4 += a_011 * (A_y * A_z);
+  b_3 += a_011 * (A_y * B_z + B_y * A_z);
+  b_2 += a_011 * (A_y * C_z + B_y * B_z + C_y * A_z);
+  b_1 += a_011 * (B_y * C_z + C_y * B_z);
+  b_0 += a_011 * (C_y * C_z);
+
+  // a_002
+  b_4 += a_002 * (A_z * A_z);
+  b_3 += a_002 * (A_z * B_z + B_z * A_z);
+  b_2 += a_002 * (B_z * B_z + A_z * C_z + C_z * A_z);
+  b_1 += a_002 * (B_z * C_z + C_z * B_z);
+  b_0 += a_002 * (C_z * C_z);
+
+  // a_001
+  b_2 += a_001 * A_z;
+  b_1 += a_001 * B_z;
+  b_0 += a_001 * C_z;
+
+  // a_000
+  b_0 += a_000;
+  
+  auto t10 = std::chrono::high_resolution_clock::now();
+  Eigen::Matrix<double, 5, 1> coeffs;
+  coeffs << b_0, b_1, b_2, b_3, b_4;
+  auto t11 = std::chrono::high_resolution_clock::now();
 
   // Step 5
+  auto t4 = std::chrono::high_resolution_clock::now();
   double tau = minimize_quartic(coeffs);
 
-  // printf("Final tau is: %f\n", tau);
-
   // Step 6
-  double x_prime = A_x_prime * tau * tau + B_x_prime * tau + C_x_prime;
-  double z_prime = A_z_prime * tau * tau + B_z_prime * tau + C_z_prime;
+  auto t5 = std::chrono::high_resolution_clock::now();
+  double x_prime = A_y * tau * tau + B_y * tau + C_y;
+  double z_prime = A_z * tau * tau + B_z * tau + C_z;
   double x = x_prime / (1 + tau * tau);
   double z = z_prime / (1 + tau * tau);
   double theta = 2 * atan(tau);
@@ -370,6 +517,7 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
   // fmt::println("Final x: {}, z: {}, theta: {}", x, z, theta);
 
   // Step 7
+  auto t6 = std::chrono::high_resolution_clock::now();
   Eigen::Matrix3d transform;
   transform <<
     0, 0, 1,
@@ -381,6 +529,17 @@ frc::Pose2d cpnp::solve_polynomial(const ProblemParams& params) {
 
   frc::Pose3d inv_pose{-nwu_pose.Translation().RotateBy(-nwu_pose.Rotation()),
                        -nwu_pose.Rotation()};
+
+  auto t7 = std::chrono::high_resolution_clock::now();
+
+  fmt::println("Step 1 time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t1-t0).count() / 1e6);
+  fmt::println("Step 2 time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t2-t1).count() / 1e6);
+  fmt::println("Step 3 time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t3-t2).count() / 1e6);
+  fmt::println("Step 4 time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t4-t3).count() / 1e6);
+  fmt::println("Step 5 time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t5-t4).count() / 1e6);
+  fmt::println("Step 6 time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t6-t5).count() / 1e6);
+  fmt::println("Step 7 time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t7-t6).count() / 1e6);
+  fmt::println("Fit quartic: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t11-t10).count() / 1e6);
 
   return inv_pose.ToPose2d();
 }
