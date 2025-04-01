@@ -13,6 +13,10 @@ jobs:
       matrix:
         include:
           - os: ubuntu-22.04
+            name: Linux Athena
+            container: wpilib/roborio-cross-ubuntu:2025-22.04
+            flags: "-DCMAKE_BUILD_TYPE=Debug --toolchain /usr/local/toolchain-config.cmake"
+          - os: ubuntu-22.04
             name: Linux
             container: wpilib/roborio-cross-ubuntu:2025-22.04
             flags: "-DCMAKE_BUILD_TYPE=Debug"
