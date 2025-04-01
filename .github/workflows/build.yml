@@ -65,7 +65,7 @@ jobs:
           vcpkgGitCommitId: 37c3e63a1306562f7f59c4c3c8892ddd50fdf992 # HEAD on 2024-02-24
 
       - name: configure
-        run: cmake -B build-cmake -G Ninja ${{ matrix.flags }}
+        run: cmake -B build-cmake ${{ matrix.flags }}
 
       - name: build
         run: cmake --build build-cmake --parallel $(nproc)

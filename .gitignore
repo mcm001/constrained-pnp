@@ -8,6 +8,6 @@
 *.blg
 src/__pycache__
 .venv
-build
+build*/*
 .cache
 compile_commands.json
