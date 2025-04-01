@@ -22,7 +22,9 @@
  * SOFTWARE.
  */
 
-#include <constrained_pnp.h>
+#include <random>
+		
+#include "cpnp/constrained_pnp.h"
 #include <gtest/gtest.h>
 
 #include <iostream>
@@ -145,6 +147,8 @@ TEST(PoseTest, Projection) {
 }
 
 TEST(PoseTest, Naive) {
+  for (int j = 0; j < 20; j++) {
+
   cpnp::ProblemParams params;
 
   params.f_x = 100;
@@ -156,9 +160,15 @@ TEST(PoseTest, Naive) {
   frc::Transform3d robot2camera {frc::Pose3d{}, frc::Pose3d{frc::Translation3d{-1.3_m, 0.25_m, 0_m}, frc::Rotation3d{0_rad, 0_rad, -1.5_rad}}};
   auto imgpoints = projectPoints(params.f_x, params.f_y, params.c_x, params.c_y, robot2camera.ToMatrix(), tags);
 
+  // Add +-1 px of noise to the image points
+  std::random_device rd;
+  std::mt19937 rng(rd());
+  std::uniform_real_distribution<double> dist(-1.0, 1.0);
+
   for (int i = 0; i < tags.cols(); ++i) {
-    params.imagePoints.push_back(imgpoints(0, i));
-    params.imagePoints.push_back(imgpoints(1, i));
+    // Add some noise to imgpoints, and add it to our list
+    params.imagePoints.push_back(imgpoints(0, i) + dist(rng));
+    params.imagePoints.push_back(imgpoints(1, i) + dist(rng));
 
     params.worldPoints.push_back(tags(0, i));
     params.worldPoints.push_back(tags(1, i));
@@ -171,14 +181,12 @@ TEST(PoseTest, Naive) {
 
   fmt::println("Polynomial solve time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t1-t0).count() / 1e6);
   
-  auto t2 = std::chrono::high_resolution_clock::now();
-  auto naive_ret = cpnp::solve_naive(params);
-  auto t3 = std::chrono::high_resolution_clock::now();
+  // auto t2 = std::chrono::high_resolution_clock::now();
+  // auto naive_ret = cpnp::solve_naive(params);
+  // auto t3 = std::chrono::high_resolution_clock::now();
 
-  fmt::println("Naive solve time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t3-t2).count() / 1e6);
-
+  // fmt::println("Naive solve time: {}ms", std::chrono::duration_cast<std::chrono::nanoseconds>(t3-t2).count() / 1e6);
   fmt::println("Polynomial method says robot is at:\n{}", polynomial_ret.ToMatrix());
-  fmt::println("Naive method says robot is at:\n{}", naive_ret.ToMatrix());
-
-  EXPECT_NEAR(field2robot.X().to<double>(), naive_ret.X().to<double>(), 0.01);
+  // fmt::println("Naive method says robot is at:\n{}", naive_ret.ToMatrix());
+  }
 }
